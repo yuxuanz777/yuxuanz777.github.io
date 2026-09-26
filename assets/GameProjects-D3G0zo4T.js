@@ -1,4 +1,4 @@
-import{P as i,a as l}from"./ProjectsList-DFtCwfV2.js";import{d as n,c as o,f as e,t as r,u as a,j as c,l as p,b as h}from"./index-CvOdiLDp.js";const d=[new i("return-to-azeroth",{en:"Return to Azeroth · Unreal Engine 5",zh:"重返艾泽拉斯 · Unreal Engine 5"},"/img/projects/return-to-azeroth-cover.jpg",{en:`
+import{P as p}from"./PageAtmosphere-Cxt1gpd7.js";import{P as t,a as h}from"./ProjectsList-UAtL36Ey.js";import{d,c as s,h as l,j as m,f as i,t as r,u as e,k as g,b as o,q as u}from"./index-Cn2aNDA0.js";import"./EmberField-DDnsinrn.js";const v=[new t("return-to-azeroth",{en:"Return to Azeroth · Unreal Engine 5",zh:"重返艾泽拉斯 · Unreal Engine 5"},"/img/projects/return-to-azeroth-cover.jpg",{en:`
         <div class="paragraph"><strong>Return to Azeroth</strong> is a Warcraft fan-made action RPG that reframes the IP in a Souls-like combat structure. I own both the design and technical implementation of this personal Unreal Engine 5 project.</div>
         <div class="paragraph"><strong>Design & engineering highlights</strong><ul>
           <li>Built responsive character 3C, dynamic combo attacks, parry, and multidirectional dodge through rapid Blueprint prototyping followed by C++ optimization</li>
@@ -16,7 +16,7 @@ import{P as i,a as l}from"./ProjectsList-DFtCwfV2.js";import{d as n,c as o,f as 
           <li>编写设计与技术文档，使项目架构始终服务于战斗体验目标</li>
         </ul></div>
         <div class="paragraph center"><iframe width="560" height="315" src="https://player.bilibili.com/player.html?bvid=BV1QTcTzREjj&autoplay=0" title="重返艾泽拉斯游戏演示" allowfullscreen></iframe></div>
-        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1QTcTzREjj/">观看视频演示</a></div></div>`},"#6aa69b",!1,!0,["Unreal Engine 5","C++","Blueprint","GAS"],"2026 —"),new i("shimmer",{en:"Shimmer · Unity & C#",zh:"Shimmer · Unity 与 C#"},"/img/projects/shimmer-original-cover.jpg",{en:`
+        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1QTcTzREjj/">观看视频演示</a></div></div>`},"#6aa69b",!1,!0,["Unreal Engine 5","C++","Blueprint","GAS"],"2026 —"),new t("shimmer",{en:"Shimmer · Unity & C#",zh:"Shimmer · Unity 与 C#"},"/img/projects/shimmer-original-cover.jpg",{en:`
         <div class="paragraph"><strong>Shimmer</strong> is a 2D platforming adventure created for TapTap’s 21 Days Game Jam around the theme “BUG.” Jumping and dashing let the player cross between layers of reality, avoid enemy attacks, and turn spatial perception into a combat tool.</div>
         <div class="paragraph"><strong>What I built</strong><ul>
           <li>Responsive jumping, dashing, and layer-switching mechanics</li>
@@ -44,7 +44,7 @@ import{P as i,a as l}from"./ProjectsList-DFtCwfV2.js";import{d as n,c as o,f as 
           <a target="_blank" rel="noopener" href="https://www.taptap.cn/app/779566?os=pc">TapTap 页面</a> ·
           <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/Shimmer">源代码</a> ·
           <a target="_blank" rel="noopener" href="https://cyber-fender-b99.notion.site/Shimmer-Dev-Journal-29fe5e57f4ac80b7962beb6680253261?source=copy_link">开发日志</a>
-        </div></div>`},"#8068c9",!0,!0,["Unity","C#","Game Jam"],"2025"),new i("steam-simulator",{en:"Steam Simulator · Unity & C#",zh:"Steam 模拟器 · Unity 与 C#"},"/img/projects/steam-simulator-icon.png",{en:`
+        </div></div>`},"#8068c9",!0,!0,["Unity","C#","Game Jam"],"2025"),new t("steam-simulator",{en:"Steam Simulator · Unity & C#",zh:"Steam 模拟器 · Unity 与 C#"},"/img/projects/steam-simulator-icon.png",{en:`
         <div class="paragraph"><strong>Steam Simulator</strong> is a strategy, simulation, and roguelike prototype made for Ludum Dare 58 under the theme “Collector.” Players trade games and shape a library whose value changes with an unpredictable market.</div>
         <div class="paragraph"><strong>Core systems</strong><ul>
           <li>Buy, sell, or store games with individual fluctuating values</li>
@@ -62,4 +62,4 @@ import{P as i,a as l}from"./ProjectsList-DFtCwfV2.js";import{d as n,c as o,f as 
           <li>在紧凑的 Game Jam 规模内提供清晰的策略决策</li>
         </ul></div>
         <div class="paragraph center"><iframe width="560" height="315" src="https://www.youtube.com/embed/8P-lxZszKMw" title="Steam 模拟器游戏演示" allowfullscreen></iframe></div>
-        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://9tchaser.itch.io/steam-simulator">游玩或下载</a> · <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/LudumDare58">源代码</a></div></div>`},"#3e9f79",!1,!1,["Unity","C#","Game Jam"],"2025")],m={class:"page-shell"},g={class:"page-heading"},u={class:"eyebrow"},v={class:"page-title"},b={class:"page-lead"},j=n({__name:"GameProjects",setup(f){const s=d,{t}=p();return(y,w)=>(h(),o("div",m,[e("header",g,[e("div",u,r(a(t)("games.eyebrow")),1),e("h1",v,r(a(t)("games.title")),1),e("p",b,r(a(t)("games.intro")),1)]),c(l,{projects:a(s)},null,8,["projects"])]))}});export{j as default};
+        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://9tchaser.itch.io/steam-simulator">游玩或下载</a> · <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/LudumDare58">源代码</a></div></div>`},"#3e9f79",!1,!1,["Unity","C#","Game Jam"],"2025")],b={class:"page-shell"},f={class:"page-heading"},y={class:"eyebrow"},w={class:"page-title"},_={class:"page-lead"},D=d({__name:"GameProjects",setup(S){const n=v,{t:a}=g();return(j,k)=>{const c=u("reveal");return o(),s("div",b,[l(p),m((o(),s("header",f,[i("div",y,r(e(a)("games.eyebrow")),1),i("h1",w,r(e(a)("games.title")),1),i("p",_,r(e(a)("games.intro")),1)])),[[c]]),l(h,{projects:e(n)},null,8,["projects"])])}}});export{D as default};
