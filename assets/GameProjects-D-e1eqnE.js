@@ -1,4 +1,4 @@
-import{P as p}from"./PageAtmosphere-Cxt1gpd7.js";import{P as t,a as h}from"./ProjectsList-UAtL36Ey.js";import{d,c as s,h as l,j as m,f as i,t as r,u as e,k as g,b as o,q as u}from"./index-Cn2aNDA0.js";import"./EmberField-DDnsinrn.js";const v=[new t("return-to-azeroth",{en:"Return to Azeroth · Unreal Engine 5",zh:"重返艾泽拉斯 · Unreal Engine 5"},"/img/projects/return-to-azeroth-cover.jpg",{en:`
+import{P as h}from"./PageAtmosphere-K6xI9mWJ.js";import{P as t,a as p}from"./ProjectsList-5R1nYcCG.js";import{d,c as s,h as o,j as m,f as r,t as i,u as e,k as g,b as l,q as u}from"./index-DYwRFL6E.js";import"./EmberField-Dk6wdBy_.js";const v=[new t("return-to-azeroth",{en:"Return to Azeroth · Unreal Engine 5",zh:"重返艾泽拉斯 · Unreal Engine 5"},"/img/projects/return-to-azeroth-cover.jpg",{en:`
         <div class="paragraph"><strong>Return to Azeroth</strong> is a Warcraft fan-made action RPG that reframes the IP in a Souls-like combat structure. I own both the design and technical implementation of this personal Unreal Engine 5 project.</div>
         <div class="paragraph"><strong>Design & engineering highlights</strong><ul>
           <li>Built responsive character 3C, dynamic combo attacks, parry, and multidirectional dodge through rapid Blueprint prototyping followed by C++ optimization</li>
@@ -6,8 +6,8 @@ import{P as p}from"./PageAtmosphere-Cxt1gpd7.js";import{P as t,a as h}from"./Pro
           <li>Created boss phases and enemy AI with Behavior Trees and State Trees</li>
           <li>Authored the design and technical documentation that keeps the project architecture and combat goals aligned</li>
         </ul></div>
-        <div class="paragraph center"><iframe width="560" height="315" src="https://player.bilibili.com/player.html?bvid=BV1QTcTzREjj&autoplay=0" title="Return to Azeroth gameplay demo" allowfullscreen></iframe></div>
-        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1QTcTzREjj/">Watch the video demo</a></div></div>`,zh:`
+        <div class="paragraph center"><iframe width="560" height="315" src="https://www.youtube.com/embed/Kq5FcPYjkuA" title="Return to Azeroth gameplay demo" allowfullscreen></iframe></div>
+        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=Kq5FcPYjkuA">Watch the video demo</a></div></div>`,zh:`
         <div class="paragraph"><strong>重返艾泽拉斯</strong> 是一款魔兽同人动作角色扮演游戏，以类魂战斗框架重新演绎原作内容。这个 Unreal Engine 5 个人项目的设计与技术实现均由我负责。</div>
         <div class="paragraph"><strong>设计与工程亮点</strong><ul>
           <li>先使用蓝图快速验证，再以 C++ 优化，完成灵敏的角色 3C、动态连招、弹反与多方向闪避</li>
@@ -15,8 +15,8 @@ import{P as p}from"./PageAtmosphere-Cxt1gpd7.js";import{P as t,a as h}from"./Pro
           <li>结合行为树与状态树实现 Boss 阶段和敌人 AI</li>
           <li>编写设计与技术文档，使项目架构始终服务于战斗体验目标</li>
         </ul></div>
-        <div class="paragraph center"><iframe width="560" height="315" src="https://player.bilibili.com/player.html?bvid=BV1QTcTzREjj&autoplay=0" title="重返艾泽拉斯游戏演示" allowfullscreen></iframe></div>
-        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://www.bilibili.com/video/BV1QTcTzREjj/">观看视频演示</a></div></div>`},"#6aa69b",!1,!0,["Unreal Engine 5","C++","Blueprint","GAS"],"2026 —"),new t("shimmer",{en:"Shimmer · Unity & C#",zh:"Shimmer · Unity 与 C#"},"/img/projects/shimmer-original-cover.jpg",{en:`
+        <div class="paragraph center"><iframe width="560" height="315" src="https://www.youtube.com/embed/Kq5FcPYjkuA" title="重返艾泽拉斯游戏演示" allowfullscreen></iframe></div>
+        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=Kq5FcPYjkuA">观看视频演示</a></div></div>`},"#6aa69b",!1,!0,["Unreal Engine 5","C++","Blueprint","GAS"],"2026 —"),new t("shimmer",{en:"Shimmer · Unity & C#",zh:"Shimmer · Unity 与 C#"},"/img/projects/shimmer-original-cover.jpg",{en:`
         <div class="paragraph"><strong>Shimmer</strong> is a 2D platforming adventure created for TapTap’s 21 Days Game Jam around the theme “BUG.” Jumping and dashing let the player cross between layers of reality, avoid enemy attacks, and turn spatial perception into a combat tool.</div>
         <div class="paragraph"><strong>What I built</strong><ul>
           <li>Responsive jumping, dashing, and layer-switching mechanics</li>
@@ -62,4 +62,4 @@ import{P as p}from"./PageAtmosphere-Cxt1gpd7.js";import{P as t,a as h}from"./Pro
           <li>在紧凑的 Game Jam 规模内提供清晰的策略决策</li>
         </ul></div>
         <div class="paragraph center"><iframe width="560" height="315" src="https://www.youtube.com/embed/8P-lxZszKMw" title="Steam 模拟器游戏演示" allowfullscreen></iframe></div>
-        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://9tchaser.itch.io/steam-simulator">游玩或下载</a> · <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/LudumDare58">源代码</a></div></div>`},"#3e9f79",!1,!1,["Unity","C#","Game Jam"],"2025")],b={class:"page-shell"},f={class:"page-heading"},y={class:"eyebrow"},w={class:"page-title"},_={class:"page-lead"},D=d({__name:"GameProjects",setup(S){const n=v,{t:a}=g();return(j,k)=>{const c=u("reveal");return o(),s("div",b,[l(p),m((o(),s("header",f,[i("div",y,r(e(a)("games.eyebrow")),1),i("h1",w,r(e(a)("games.title")),1),i("p",_,r(e(a)("games.intro")),1)])),[[c]]),l(h,{projects:e(n)},null,8,["projects"])])}}});export{D as default};
+        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://9tchaser.itch.io/steam-simulator">游玩或下载</a> · <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/LudumDare58">源代码</a></div></div>`},"#3e9f79",!1,!1,["Unity","C#","Game Jam"],"2025")],f={class:"page-shell"},b={class:"page-heading"},w={class:"eyebrow"},y={class:"page-title"},_={class:"page-lead"},D=d({__name:"GameProjects",setup(k){const n=v,{t:a}=g();return(S,j)=>{const c=u("reveal");return l(),s("div",f,[o(h),m((l(),s("header",b,[r("div",w,i(e(a)("games.eyebrow")),1),r("h1",y,i(e(a)("games.title")),1),r("p",_,i(e(a)("games.intro")),1)])),[[c]]),o(p,{projects:e(n)},null,8,["projects"])])}}});export{D as default};

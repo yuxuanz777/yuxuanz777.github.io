@@ -1,4 +1,4 @@
-import{P as p}from"./PageAtmosphere-Cxt1gpd7.js";import{P as i,a as d}from"./ProjectsList-UAtL36Ey.js";import{d as g,c as r,h as n,j as m,f as s,t,u as e,k as h,b as o,q as v}from"./index-Cn2aNDA0.js";import"./EmberField-DDnsinrn.js";const u=[new i("engine-optimization",{en:"Game Engine Optimization · C++",zh:"游戏引擎优化 · C++"},"/img/projects/engine-optimization-icon.png",{en:`
+import{P as p}from"./PageAtmosphere-K6xI9mWJ.js";import{P as i,a as d}from"./ProjectsList-5R1nYcCG.js";import{d as g,c as r,h as n,j as m,f as s,t,u as e,k as h,b as o,q as v}from"./index-DYwRFL6E.js";import"./EmberField-Dk6wdBy_.js";const u=[new i("engine-optimization",{en:"Game Engine Optimization · C++",zh:"游戏引擎优化 · C++"},"/img/projects/engine-optimization-icon.png",{en:`
         <div class="paragraph"><strong>Game Engine Optimization</strong> extended a custom C++ engine based on Prime Engine architecture with new systems and performance-focused improvements.</div>
         <div class="paragraph"><strong>Contributions</strong><ul>
           <li>Improved NPC decision logic for more adaptive behavior</li>
