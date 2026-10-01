@@ -1,8 +1,9 @@
-import{P as h}from"./PageAtmosphere-K6xI9mWJ.js";import{P as t,a as p}from"./ProjectsList-5R1nYcCG.js";import{d,c as s,h as o,j as m,f as r,t as i,u as e,k as g,b as l,q as u}from"./index-DYwRFL6E.js";import"./EmberField-Dk6wdBy_.js";const v=[new t("return-to-azeroth",{en:"Return to Azeroth · Unreal Engine 5",zh:"重返艾泽拉斯 · Unreal Engine 5"},"/img/projects/return-to-azeroth-cover.jpg",{en:`
+import{P as h}from"./PageAtmosphere-BiI9kF_-.js";import{P as t,a as p}from"./ProjectsList-D3E0TwA_.js";import{d,c as s,h as l,j as m,f as r,t as i,u as e,k as g,b as o,q as u}from"./index-BEMi-ynX.js";import"./EmberField-z5YX1ZgC.js";const v=[new t("return-to-azeroth",{en:"Return to Azeroth · Unreal Engine 5",zh:"重返艾泽拉斯 · Unreal Engine 5"},"/img/projects/return-to-azeroth-cover-v2.jpg",{en:`
         <div class="paragraph"><strong>Return to Azeroth</strong> is a Warcraft fan-made action RPG that reframes the IP in a Souls-like combat structure. I own both the design and technical implementation of this personal Unreal Engine 5 project.</div>
         <div class="paragraph"><strong>Design & engineering highlights</strong><ul>
           <li>Built responsive character 3C, dynamic combo attacks, parry, and multidirectional dodge through rapid Blueprint prototyping followed by C++ optimization</li>
           <li>Used Gameplay Ability System for scalable ability activation, Attribute Sets, and Gameplay Effects</li>
+          <li>Building out the level, item, and skill systems: playable levels, an item system, and a GAS-based skill system layered on the combat foundation</li>
           <li>Created boss phases and enemy AI with Behavior Trees and State Trees</li>
           <li>Authored the design and technical documentation that keeps the project architecture and combat goals aligned</li>
         </ul></div>
@@ -12,6 +13,7 @@ import{P as h}from"./PageAtmosphere-K6xI9mWJ.js";import{P as t,a as p}from"./Pro
         <div class="paragraph"><strong>设计与工程亮点</strong><ul>
           <li>先使用蓝图快速验证，再以 C++ 优化，完成灵敏的角色 3C、动态连招、弹反与多方向闪避</li>
           <li>使用 Gameplay Ability System 搭建可扩展的技能激活、属性集与 Gameplay Effects</li>
+          <li>推进关卡、物品与技能系统的制作：搭建可游玩关卡、物品系统，以及基于 GAS、建立在战斗框架之上的技能系统</li>
           <li>结合行为树与状态树实现 Boss 阶段和敌人 AI</li>
           <li>编写设计与技术文档，使项目架构始终服务于战斗体验目标</li>
         </ul></div>
@@ -62,4 +64,4 @@ import{P as h}from"./PageAtmosphere-K6xI9mWJ.js";import{P as t,a as p}from"./Pro
           <li>在紧凑的 Game Jam 规模内提供清晰的策略决策</li>
         </ul></div>
         <div class="paragraph center"><iframe width="560" height="315" src="https://www.youtube.com/embed/8P-lxZszKMw" title="Steam 模拟器游戏演示" allowfullscreen></iframe></div>
-        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://9tchaser.itch.io/steam-simulator">游玩或下载</a> · <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/LudumDare58">源代码</a></div></div>`},"#3e9f79",!1,!1,["Unity","C#","Game Jam"],"2025")],f={class:"page-shell"},b={class:"page-heading"},w={class:"eyebrow"},y={class:"page-title"},_={class:"page-lead"},D=d({__name:"GameProjects",setup(k){const n=v,{t:a}=g();return(S,j)=>{const c=u("reveal");return l(),s("div",f,[o(h),m((l(),s("header",b,[r("div",w,i(e(a)("games.eyebrow")),1),r("h1",y,i(e(a)("games.title")),1),r("p",_,i(e(a)("games.intro")),1)])),[[c]]),o(p,{projects:e(n)},null,8,["projects"])])}}});export{D as default};
+        <div class="paragraph"><div class="notice"><a target="_blank" rel="noopener" href="https://9tchaser.itch.io/steam-simulator">游玩或下载</a> · <a target="_blank" rel="noopener" href="https://github.com/yuxuanz777/LudumDare58">源代码</a></div></div>`},"#3e9f79",!1,!1,["Unity","C#","Game Jam"],"2025")],f={class:"page-shell"},b={class:"page-heading"},y={class:"eyebrow"},w={class:"page-title"},_={class:"page-lead"},D=d({__name:"GameProjects",setup(k){const n=v,{t:a}=g();return(S,j)=>{const c=u("reveal");return o(),s("div",f,[l(h),m((o(),s("header",b,[r("div",y,i(e(a)("games.eyebrow")),1),r("h1",w,i(e(a)("games.title")),1),r("p",_,i(e(a)("games.intro")),1)])),[[c]]),l(p,{projects:e(n)},null,8,["projects"])])}}});export{D as default};
