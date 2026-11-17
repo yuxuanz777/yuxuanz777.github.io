@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-/* Layout: 左侧分组参数栏（可滚动） + 右侧结果区（摘要 → 分布 → 单局时间轴 → 连击节奏表）；算法说明为右侧抽屉 */
+/* Layout: 左侧分组参数栏 + 右侧结果区（摘要 → 分布 → 单局时间轴 → 表格）；字号随视口连续缩放；≤820px 时参数栏变为抽屉 */
 :root {
   --bg: #f4f5f7;
   --surface: #ffffff;
@@ -27,7 +27,9 @@
   --changed: #eb6834;
   --font-body: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
-  --radius: 10px;
+  --radius: 0.75rem;
+  --side: clamp(20rem, 24vw, 27rem);
+  --gap: clamp(0.75rem, 1.1vw, 1.25rem);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -42,145 +44,181 @@
   --line: #2d323a; --accent: #3987e5; --accent-soft: #1c2a3d; --weak: #199e70; --weak-band: rgba(25, 158, 112, 0.18);
   --warn: #e0a23a; --warn-soft: #2e2512; --bad: #e66767; --changed: #d95926; color-scheme: dark;
 }
+/* 基础字号：手机 15px → 1440 宽约 15.5px → 2560 宽约 19px，上限 21px */
+html { font-size: clamp(15px, 0.31vw + 11px, 21px); -webkit-text-size-adjust: 100%; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-body); }
+body { background: var(--bg); color: var(--ink); font: 1rem/1.55 var(--font-body); }
 button { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
 header {
-  display: flex; align-items: center; gap: 16px; padding: 12px 20px;
+  display: flex; align-items: center; gap: 1rem; padding: 0.85rem 1.4rem;
   background: var(--surface); border-bottom: 1px solid var(--line);
 }
-header h1 { font-size: 17px; font-weight: 600; margin: 0; text-wrap: balance; }
-header .sub { color: var(--ink-3); font-size: 12px; }
+header h1 { font-size: 1.3rem; font-weight: 600; margin: 0; line-height: 1.25; text-wrap: balance; }
+header .sub { color: var(--ink-3); font-size: 0.82rem; margin-top: 0.15rem; }
 header .spacer { flex: 1; }
+.hbtns { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
 .btn {
-  border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px;
-  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 0.55rem; padding: 0.45rem 0.85rem;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; white-space: nowrap; min-height: 2.25rem;
 }
 .btn:hover { border-color: var(--ink-3); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { filter: brightness(1.08); }
 .btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.btn.primary[aria-expanded="true"] { color: var(--accent); }
+#paramsBtn { display: none; }
 
-.main { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
-.params { border-right: 1px solid var(--line); background: var(--surface); overflow-y: auto; padding: 8px 0 24px; }
-.results { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.main { display: grid; grid-template-columns: var(--side) 1fr; min-height: 0; }
+.params { border-right: 1px solid var(--line); background: var(--surface); overflow-y: auto; padding: 0.5rem 0 1.5rem; }
+.params-head { display: none; }
+.results { overflow-y: auto; padding: var(--gap); min-width: 0; }
+.results-inner { max-width: 110rem; margin: 0 auto; display: flex; flex-direction: column; gap: var(--gap); }
 
 details.group { border-bottom: 1px solid var(--line); }
 details.group > summary {
-  list-style: none; cursor: pointer; padding: 12px 18px; display: flex; align-items: center; gap: 8px;
-  font-weight: 600; font-size: 13px;
+  list-style: none; cursor: pointer; padding: 0.8rem 1.2rem; display: flex; align-items: center; gap: 0.5rem;
+  font-weight: 600; font-size: 0.95rem;
 }
 details.group > summary::-webkit-details-marker { display: none; }
-details.group > summary .chev { transition: transform .15s; color: var(--ink-3); font-size: 11px; }
+details.group > summary .chev { transition: transform .15s; color: var(--ink-3); font-size: 0.7rem; }
 details.group[open] > summary .chev { transform: rotate(90deg); }
-details.group > summary .count { margin-left: auto; font-size: 11px; color: var(--changed); font-weight: 500; }
-.group-body { padding: 0 18px 14px; display: flex; flex-direction: column; gap: 9px; }
-.group-note { color: var(--ink-3); font-size: 12px; margin: -2px 0 2px; }
+details.group > summary .count { margin-left: auto; font-size: 0.78rem; color: var(--changed); font-weight: 500; }
+.group-body { padding: 0 1.2rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+.group-note { color: var(--ink-3); font-size: 0.8rem; margin: -0.1rem 0 0.1rem; }
 
-.field { display: grid; grid-template-columns: 1fr 112px; align-items: center; gap: 8px; }
-.field label { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; min-width: 0; }
+.field { display: grid; grid-template-columns: 1fr 7.6rem; align-items: center; gap: 0.6rem; }
+.field label { font-size: 0.9rem; color: var(--ink-2); display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .field label .lbl { overflow-wrap: anywhere; }
 .src {
-  font: 500 10px/1 var(--font-num); padding: 3px 5px; border-radius: 4px; background: var(--surface-2);
+  font: 500 0.68rem/1 var(--font-num); padding: 0.22rem 0.35rem; border-radius: 0.3rem; background: var(--surface-2);
   color: var(--ink-3); flex-shrink: 0; letter-spacing: .02em;
 }
 .src.new { background: var(--accent-soft); color: var(--accent); }
 .src.guess { background: var(--warn-soft); color: var(--warn); }
-.inp { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); overflow: hidden; }
+.inp { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 0.5rem; background: var(--surface); overflow: hidden; min-height: 2.1rem; }
 .inp:focus-within { border-color: var(--accent); }
 .inp input, .inp select {
-  width: 100%; border: 0; background: transparent; padding: 5px 7px; font: 13px var(--font-num);
+  width: 100%; border: 0; background: transparent; padding: 0.35rem 0.5rem; font: 0.9rem var(--font-num);
   color: var(--ink); font-variant-numeric: tabular-nums; min-width: 0;
 }
+.inp input[type="checkbox"] { width: 1.15rem; height: 1.15rem; }
 .inp input:focus, .inp select:focus { outline: none; }
-.inp .unit { font-size: 11px; color: var(--ink-3); padding-right: 7px; white-space: nowrap; }
-.field.changed label .lbl::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--changed); margin-left: 6px; vertical-align: middle; }
+.inp .unit { font-size: 0.75rem; color: var(--ink-3); padding-right: 0.5rem; white-space: nowrap; }
+.field.changed label .lbl::after { content: ""; display: inline-block; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--changed); margin-left: 0.4rem; vertical-align: middle; }
 .field.disabled { opacity: .45; }
-.reset-one { border: 0; background: none; color: var(--changed); cursor: pointer; padding: 0 2px; font-size: 12px; }
+.reset-one { border: 0; background: none; color: var(--changed); cursor: pointer; padding: 0 0.15rem; font-size: 0.85rem; }
 
-.legend-src { padding: 10px 18px 4px; display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--ink-3); }
-.legend-src span { display: inline-flex; gap: 4px; align-items: center; }
+.legend-src { padding: 0.6rem 1.2rem 0.3rem; display: flex; flex-wrap: wrap; gap: 0.35rem 0.7rem; font-size: 0.75rem; color: var(--ink-3); }
+.legend-src span { display: inline-flex; gap: 0.3rem; align-items: center; }
 
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; min-width: 0; }
-.card h2 { font-size: 14px; font-weight: 600; margin: 0 0 2px; text-wrap: balance; }
-.card .desc { font-size: 12px; color: var(--ink-3); margin: 0 0 12px; }
-.card-head { display: flex; align-items: flex-start; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: clamp(0.9rem, 1.2vw, 1.4rem) clamp(1rem, 1.3vw, 1.6rem); min-width: 0; }
+.card h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.15rem; text-wrap: balance; }
+.card .desc { font-size: 0.85rem; color: var(--ink-3); margin: 0 0 0.75rem; }
+.card-head { display: flex; align-items: flex-start; gap: 0.75rem; }
 .card-head > div { flex: 1; min-width: 0; }
 
-.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.95rem 1.1rem; min-width: 0; }
 .tile.hero { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.tile .k { font-size: 12px; color: var(--ink-2); }
-.tile .v { font: 600 30px/1.15 var(--font-num); font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
-.tile .v small { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 2px; }
-.tile .q { font: 12px var(--font-num); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.tile .ideal { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12px; color: var(--ink-2); }
+.tile .k { font-size: 0.88rem; color: var(--ink-2); }
+.tile .v { font: 600 2.2rem/1.15 var(--font-num); font-variant-numeric: tabular-nums; margin: 0.25rem 0 0.1rem; }
+.tile .v small { font-size: 0.95rem; font-weight: 500; color: var(--ink-3); margin-left: 0.15rem; }
+.tile .q { font: 0.8rem var(--font-num); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tile .ideal { margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px dashed var(--line); font-size: 0.85rem; color: var(--ink-2); }
 .tile .ideal b { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.alerts { display: flex; flex-direction: column; gap: 8px; }
-.alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--ink); font-size: 13px; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
-.alert .ic { font: 600 11px/18px var(--font-num); color: var(--surface); background: var(--warn); border-radius: 50%; width: 18px; height: 18px; text-align: center; flex-shrink: 0; }
+.alerts { display: flex; flex-direction: column; gap: 0.5rem; }
+.alerts:empty { display: none; }
+.alert { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.65rem 0.9rem; border-radius: 0.55rem; background: var(--warn-soft); color: var(--ink); font-size: 0.9rem; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.alert .ic { font: 600 0.72rem/1.2rem var(--font-num); color: var(--surface); background: var(--warn); border-radius: 50%; width: 1.2rem; height: 1.2rem; text-align: center; flex-shrink: 0; margin-top: 0.1rem; }
 
-.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.chart { position: relative; width: 100%; }
-.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart text { fill: var(--ink-3); font: 11px var(--font-num); }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); }
+.chart { position: relative; width: 100%; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { fill: var(--ink-3); font-family: var(--font-num); }
 .chart .lab { fill: var(--ink-2); font-weight: 500; }
 .chart .grid line { stroke: var(--line); stroke-width: 1; }
 .chart .axis { stroke: var(--ink-3); stroke-width: 1; }
 .tip {
-  position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; line-height: 1.45;
-  padding: 7px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .08s; z-index: 5;
+  position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 0.82rem; line-height: 1.45;
+  padding: 0.45rem 0.6rem; border-radius: 0.4rem; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .08s; z-index: 5;
 }
 .tip b { font-family: var(--font-num); }
 .tip.show { opacity: 1; }
 
-.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
-.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.82rem; color: var(--ink-2); margin-top: 0.5rem; }
+.legend i { display: inline-block; width: 0.8rem; height: 0.8rem; border-radius: 3px; margin-right: 0.35rem; vertical-align: -0.1rem; }
 
-.tbl-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; }
-th { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+.tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { padding: 0.5rem 0.7rem; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+th { font-weight: 500; color: var(--ink-3); font-size: 0.8rem; }
 td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.pill { display: inline-block; font: 500 11px/1 var(--font-body); padding: 3px 7px; border-radius: 99px; }
+.pill { display: inline-block; font: 500 0.75rem/1 var(--font-body); padding: 0.22rem 0.5rem; border-radius: 99px; }
 .pill.ok { background: color-mix(in srgb, var(--weak) 16%, transparent); color: var(--weak); }
 .pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
 
-/* 算法抽屉 */
-.drawer-backdrop { position: fixed; inset: 0; background: rgba(10, 12, 16, .28); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+/* 抽屉（算法说明，手机上的参数栏） */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(10, 12, 16, .32); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
 .drawer {
-  position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 100%); background: var(--surface);
+  position: fixed; top: 0; right: 0; height: 100%; width: min(40rem, 100%); background: var(--surface);
   border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(0,0,0,.12); transform: translateX(100%);
   transition: transform .22s ease; z-index: 21; display: flex; flex-direction: column;
 }
 .drawer.open { transform: none; }
-.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
-.drawer-head { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
-.drawer-head h2 { margin: 0; font-size: 15px; flex: 1; }
-.drawer-body { overflow-y: auto; padding: 6px 22px 28px; font-size: 13.5px; line-height: 1.65; }
-.drawer-body h3 { font-size: 13.5px; margin: 20px 0 6px; }
+.drawer-head { display: flex; align-items: center; padding: 0.9rem 1.3rem; border-bottom: 1px solid var(--line); }
+.drawer-head h2 { margin: 0; font-size: 1.1rem; flex: 1; }
+.drawer-body { overflow-y: auto; padding: 0.4rem 1.4rem 2rem; font-size: 0.95rem; line-height: 1.7; }
+.drawer-body h3 { font-size: 1rem; margin: 1.3rem 0 0.4rem; }
 .drawer-body p, .drawer-body li { color: var(--ink-2); max-width: 65ch; }
-.drawer-body ol, .drawer-body ul { padding-left: 20px; margin: 6px 0; }
-.drawer-body code, .formula { font: 12.5px var(--font-num); }
-.formula { display: block; background: var(--surface-2); border-radius: 7px; padding: 8px 11px; margin: 6px 0; color: var(--ink); white-space: pre-wrap; }
-.drawer-body .srcline { font-size: 12px; color: var(--ink-3); }
+.drawer-body ol, .drawer-body ul { padding-left: 1.3rem; margin: 0.4rem 0; }
+.drawer-body code, .formula { font: 0.86rem var(--font-num); }
+.formula { display: block; background: var(--surface-2); border-radius: 0.5rem; padding: 0.55rem 0.75rem; margin: 0.4rem 0; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.drawer-body .srcline { font-size: 0.82rem; color: var(--ink-3); }
 
-@media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid2 { grid-template-columns: 1fr; } }
-@media (max-width: 760px) {
-  .main { grid-template-columns: 1fr; }
-  .app { height: auto; } html, body { height: auto; }
-  .params { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
-  .results { overflow: visible; padding: 16px; }
-  header { flex-wrap: wrap; padding: 12px 16px; }
+@media (max-width: 1280px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .grid2 { grid-template-columns: 1fr; } }
+@media (max-width: 820px) {
+  html { font-size: 15px; }
+  html, body { height: auto; }
+  .app { height: auto; display: block; }
+  header { position: sticky; top: 0; z-index: 10; flex-wrap: wrap; padding: 0.7rem 1rem; gap: 0.5rem 0.75rem; }
+  header > div:first-child { flex: 1 1 100%; }
+  header .sub { display: none; }
+  header .spacer { display: none; }
+  .hbtns { flex: 1 1 100%; justify-content: flex-start; }
+  #paramsBtn { display: inline-flex; }
+  .main { display: block; }
+  .results { overflow: visible; padding: 0.8rem; }
+  .params {
+    position: fixed; top: 0; left: 0; height: 100%; width: min(26rem, 92vw); z-index: 21; border-right: 1px solid var(--line);
+    transform: translateX(-100%); transition: transform .22s ease; box-shadow: 12px 0 32px rgba(0,0,0,.12); padding-top: 0;
+  }
+  .params.open { transform: none; }
+  .params-head { display: flex; align-items: center; position: sticky; top: 0; background: var(--surface); padding: 0.75rem 1.2rem; border-bottom: 1px solid var(--line); z-index: 1; }
+  .params-head h2 { margin: 0; font-size: 1.05rem; }
+  .params-head .mini { flex: 1; font: 0.78rem var(--font-num); color: var(--accent); padding: 0 0.6rem; line-height: 1.3; }
+  .field { grid-template-columns: 1fr 8.5rem; }
+  /* iOS 输入框字号低于 16px 会自动放大页面 */
+  .inp input, .inp select { font-size: 16px; }
+  .tile .v { font-size: 1.8rem; }
+  .tile { padding: 0.8rem 0.9rem; }
+  .tip { white-space: normal; width: max-content; max-width: 16rem; }
+}
+@media (max-width: 400px) {
+  .tiles { gap: 0.6rem; }
+  .tile .v { font-size: 1.6rem; }
+  .btn { padding: 0.4rem 0.65rem; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
+
 </head>
 <body>
 <div class="app">
@@ -190,13 +228,20 @@ td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
       <div class="sub" data-i18n="subtitle"></div>
     </div>
     <div class="spacer"></div>
-    <button class="btn" id="langBtn" type="button" title="切换语言 / Switch language"></button>
-    <button class="btn" id="resetAll" type="button" data-i18n="resetAll"></button>
-    <button class="btn primary" id="algoBtn" type="button" aria-expanded="false" aria-controls="drawer" data-i18n="algo"></button>
+    <div class="hbtns">
+      <button class="btn primary" id="paramsBtn" type="button" aria-expanded="false" aria-controls="params" data-i18n="params"></button>
+      <button class="btn" id="langBtn" type="button" title="切换语言 / Switch language"></button>
+      <button class="btn" id="resetAll" type="button" data-i18n="resetAll"></button>
+      <button class="btn primary" id="algoBtn" type="button" aria-expanded="false" aria-controls="drawer" data-i18n="algo"></button>
+    </div>
   </header>
   <div class="main">
-    <aside class="params" id="params"></aside>
+    <aside class="params" id="params">
+      <div class="params-head"><h2 data-i18n="params"></h2><span class="mini" id="miniSum"></span><button class="btn" id="closeParams" type="button" data-i18n="done"></button></div>
+      <div id="paramsList"></div>
+    </aside>
     <main class="results">
+      <div class="results-inner" id="resultsInner">
       <div class="tiles" id="tiles"></div>
       <div class="alerts" id="alerts"></div>
       <div class="grid2">
@@ -237,6 +282,7 @@ td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
         <p class="desc" data-i18n="roundTblDesc"></p>
         <div class="tbl-wrap"><table id="roundTbl"></table></div>
       </section>
+      </div>
     </main>
   </div>
 </div>
@@ -587,7 +633,7 @@ const I18N = {
   zh: {
     docTitle: 'Orb 击杀 Boss 模拟器', title: 'Orb 击杀 Boss 模拟器',
     subtitle: '两名玩家轮流投掷 · 只在 Weak 阶段出手 · 默认值取自 DA_TestPlayer / BP_Enemy / BT_AI（2026-11-16）',
-    langBtn: 'English', resetAll: '恢复默认', algo: '算法说明', close: '关闭', params: '参数',
+    langBtn: 'English', resetAll: '恢复默认', algo: '算法说明', close: '关闭', params: '参数', done: '完成',
     roundsTitle: '在第几轮 Weak 击杀', throwsTitle: '投掷次数分布', throwsDesc: '每局从开局到击杀的总出手次数（含未命中）',
     sampleTitle: '单局示例', nextSample: '换一局',
     lgWeak: 'Weak 阶段', lgHP: 'Boss 血量', lgHit: '命中', lgDrop: '掉球（未命中 / 没接住 / 回弹落地）',
@@ -621,7 +667,7 @@ const I18N = {
   en: {
     docTitle: 'Orb vs Boss Kill Simulator', title: 'Orb vs Boss Kill Simulator',
     subtitle: 'Two players alternate throws · throws only during Weak · defaults from DA_TestPlayer / BP_Enemy / BT_AI (2026-11-16)',
-    langBtn: '中文', resetAll: 'Reset all', algo: 'How it works', close: 'Close', params: 'Parameters',
+    langBtn: '中文', resetAll: 'Reset all', algo: 'How it works', close: 'Close', params: 'Parameters', done: 'Done',
     roundsTitle: 'Weak round of the kill', throwsTitle: 'Throws per kill', throwsDesc: 'Total throws per run from start to kill, misses included',
     sampleTitle: 'Sample run', nextSample: 'Next run',
     lgWeak: 'Weak phase', lgHP: 'Boss HP', lgHit: 'Hit', lgDrop: 'Drop (miss / not caught / rebound fell short)',
@@ -726,9 +772,9 @@ const toUI = (f, v) => f.pct ? +(v * 100).toFixed(4) : v;
 const fromUI = (f, v) => f.pct ? v / 100 : v;
 
 function buildParams() {
-  const root = document.getElementById('params');
+  const root = document.getElementById('paramsList');
   root.innerHTML = '';
-  root.setAttribute('aria-label', T('params'));
+  document.getElementById('params').setAttribute('aria-label', T('params'));
   const leg = document.createElement('div');
   leg.className = 'legend-src';
   leg.innerHTML = T('srcLegend').map(([a, b, c]) => `<span><span class="src${c ? ' ' + c : ''}">${a}</span>${b}</span>`).join('');
@@ -797,10 +843,15 @@ function tipFor(container) {
   let t = container.querySelector('.tip'); if (!t) { t = document.createElement('div'); t.className = 'tip'; container.appendChild(t); }
   return { show(html, x, y) { t.innerHTML = html; t.style.left = x + 'px'; t.style.top = y + 'px'; t.classList.add('show'); }, hide() { t.classList.remove('show'); } };
 }
+const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
 function barChart(container, cats, values, opts) {
   container.innerHTML = '';
-  const W = 520, H = 220, m = { l: 40, r: 10, t: 22, b: 30 };
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria }, container);
+  const fs = remPx(), tf = Math.round(fs * 0.8);
+  const W = Math.max(260, Math.round(container.clientWidth || 520));
+  const H = Math.round(clampN(W * 0.48, fs * 13, fs * 20));
+  const m = { l: Math.round(tf * 3.4), r: 6, t: Math.round(tf * 2), b: Math.round(tf * 2.6) };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': opts.aria, 'font-size': tf }, container);
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const maxV = Math.max(...values, 1e-9);
   const step = niceStep(maxV, 4); const top = Math.ceil(maxV / step) * step || 1;
@@ -808,9 +859,10 @@ function barChart(container, cats, values, opts) {
   for (let v = 0; v <= top + 1e-9; v += step) {
     const y = m.t + ih - (v / top) * ih;
     el('line', { x1: m.l, x2: W - m.r, y1: y, y2: y }, g);
-    const tx = el('text', { x: m.l - 6, y: y + 4, 'text-anchor': 'end' }, svg); tx.textContent = opts.yfmt(v);
+    const tx = el('text', { x: m.l - tf * 0.5, y: y + tf * 0.35, 'text-anchor': 'end' }, svg); tx.textContent = opts.yfmt(v);
   }
-  const bw = iw / cats.length; const gap = Math.min(10, bw * 0.25);
+  const bw = iw / cats.length; const gap = Math.min(fs * 0.7, bw * 0.25);
+  const labelEvery = Math.max(1, Math.ceil(cats.length / Math.max(1, Math.floor(iw / (tf * opts.labelW)))));
   const tip = tipFor(container);
   const maxIdx = values.indexOf(maxV);
   cats.forEach((c, i) => {
@@ -818,11 +870,12 @@ function barChart(container, cats, values, opts) {
     const r = Math.min(4, w / 2, h);
     const path = h > 0 ? `M${x},${m.t + ih} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${m.t + ih} Z` : '';
     if (path) el('path', { d: path, fill: opts.color(c, i) }, svg);
-    if (cats.length <= 14 || i % Math.ceil(cats.length / 14) === 0) { const lx = el('text', { x: x + w / 2, y: H - m.b + 16, 'text-anchor': 'middle' }, svg); lx.textContent = opts.xfmt(c); }
-    if (v > 0 && (i === maxIdx || (opts.labelAll && cats.length <= 8))) { const lt = el('text', { x: x + w / 2, y: y - 6, 'text-anchor': 'middle', class: 'lab' }, svg); lt.textContent = opts.yfmt(v); }
+    if (i % labelEvery === 0) { const lx = el('text', { x: x + w / 2, y: m.t + ih + tf * 1.45, 'text-anchor': 'middle' }, svg); lx.textContent = opts.xfmt(c); }
+    if (v > 0 && (i === maxIdx || (opts.labelAll && cats.length <= 8))) { const lt = el('text', { x: x + w / 2, y: y - tf * 0.5, 'text-anchor': 'middle', class: 'lab' }, svg); lt.textContent = opts.yfmt(v); }
     const hit = el('rect', { x: m.l + i * bw, y: m.t, width: bw, height: ih, fill: 'transparent' }, svg);
-    hit.addEventListener('mousemove', () => { const rect = svg.getBoundingClientRect(); const sx = rect.width / W; tip.show(opts.tip(c, v), (x + w / 2) * sx, (Math.min(y, m.t + ih - 4)) * sx); });
-    hit.addEventListener('mouseleave', () => tip.hide());
+    const show = () => { const rect = svg.getBoundingClientRect(); const sx = rect.width / W; tip.show(opts.tip(c, v), (x + w / 2) * sx, (Math.min(y, m.t + ih - 4)) * sx); };
+    hit.addEventListener('pointermove', show); hit.addEventListener('pointerdown', show);
+    hit.addEventListener('pointerleave', () => tip.hide());
   });
   el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, class: 'axis' }, svg);
   if (opts.xlabel) { const t = el('text', { x: W - m.r, y: H - 2, 'text-anchor': 'end' }, svg); t.textContent = opts.xlabel; }
@@ -830,8 +883,11 @@ function barChart(container, cats, values, opts) {
 
 function timelineChart(container, run, P) {
   container.innerHTML = '';
-  const W = 1000, H = 260, m = { l: 44, r: 16, t: 16, b: 32 };
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': T('timelineAria') }, container);
+  const fs = remPx(), tf = Math.round(fs * 0.8);
+  const W = Math.max(260, Math.round(container.clientWidth || 1000));
+  const H = Math.round(clampN(W * 0.3, fs * 14, fs * 24));
+  const m = { l: Math.round(tf * 3), r: 8, t: Math.round(tf * 0.6), b: Math.round(tf * 2.4) };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, role: 'img', 'aria-label': T('timelineAria'), 'font-size': tf }, container);
   const iw = W - m.l - m.r, ih = H - m.t - m.b;
   const tEnd = Math.max(run.time, 1) * 1.04;
   const X = t => m.l + (t / tEnd) * iw, Y = hp => m.t + ih - (hp / P.maxHP) * ih;
@@ -840,13 +896,13 @@ function timelineChart(container, run, P) {
     const x0 = X(ph.start), x1 = X(Math.min(ph.end, tEnd));
     el('rect', { x: x0, y: m.t, width: Math.max(0, x1 - x0), height: ih, fill: 'var(--weak-band)' }, svg);
     el('line', { x1: x0, x2: x0, y1: m.t, y2: m.t + ih, stroke: 'var(--weak)', 'stroke-width': 1, opacity: .6 }, svg);
-    const lt = el('text', { x: x0 + 5, y: m.t + 13, class: 'lab' }, svg); lt.textContent = `W${ph.k}`; lt.setAttribute('fill', 'var(--weak)');
+    const lt = el('text', { x: x0 + 4, y: m.t + tf * 1.15, class: 'lab' }, svg); lt.textContent = `W${ph.k}`; lt.setAttribute('fill', 'var(--weak)');
   }
   const g = el('g', { class: 'grid' }, svg);
   const hs = niceStep(P.maxHP, 4);
-  for (let v = 0; v <= P.maxHP + 1e-9; v += hs) { const y = Y(v); el('line', { x1: m.l, x2: W - m.r, y1: y, y2: y }, g); const t = el('text', { x: m.l - 6, y: y + 4, 'text-anchor': 'end' }, svg); t.textContent = fmt(v, 0); }
-  const ts = niceStep(tEnd, 8);
-  for (let t = 0; t <= tEnd; t += ts) { const tx = el('text', { x: X(t), y: H - m.b + 16, 'text-anchor': 'middle' }, svg); tx.textContent = fmt(t, 0) + 's'; }
+  for (let v = 0; v <= P.maxHP + 1e-9; v += hs) { const y = Y(v); el('line', { x1: m.l, x2: W - m.r, y1: y, y2: y }, g); const t = el('text', { x: m.l - tf * 0.5, y: y + tf * 0.35, 'text-anchor': 'end' }, svg); t.textContent = fmt(v, 0); }
+  const ts = niceStep(tEnd, clampN(Math.floor(iw / (tf * 5)), 3, 12));
+  for (let t = 0; t <= tEnd; t += ts) { const tx = el('text', { x: X(t), y: m.t + ih + tf * 1.45, 'text-anchor': 'middle' }, svg); tx.textContent = fmt(t, 0) + 's'; }
   el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, class: 'axis' }, svg);
   let d = `M${X(0)},${Y(P.maxHP)}`;
   for (const e of run.events.filter(e => e.type === 'hit')) d += ` H${X(e.t)} V${Y(e.hp)}`;
@@ -858,7 +914,7 @@ function timelineChart(container, run, P) {
     if (e.type === 'catch') continue;
     const isHit = e.type === 'hit';
     const cx = X(e.t), cy = Y(e.hp);
-    el('circle', { cx, cy, r: isHit ? 4 : 4.5, fill: isHit ? 'var(--accent)' : 'var(--bad)', stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
+    el('circle', { cx, cy, r: isHit ? fs * 0.28 : fs * 0.32, fill: isHit ? 'var(--accent)' : 'var(--bad)', stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
     marks.push({ e, cx, cy });
   }
   const desc = e => {
@@ -868,13 +924,14 @@ function timelineChart(container, run, P) {
   };
   const overlay = el('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent' }, svg);
   const guide = el('line', { x1: 0, x2: 0, y1: m.t, y2: m.t + ih, stroke: 'var(--ink-3)', 'stroke-dasharray': '3 3', opacity: 0 }, svg);
-  overlay.addEventListener('mousemove', (ev) => {
+  const onMove = (ev) => {
     const rect = svg.getBoundingClientRect(); const sx = rect.width / W; const px = (ev.clientX - rect.left) / sx;
     let best = null, bd = 1e9; for (const mk of marks) { const dd = Math.abs(mk.cx - px); if (dd < bd) { bd = dd; best = mk; } }
-    if (best && bd < 30) { guide.setAttribute('x1', best.cx); guide.setAttribute('x2', best.cx); guide.setAttribute('opacity', .7); tip.show(desc(best.e), best.cx * sx, best.cy * sx); }
+    if (best && bd < fs * 2.2) { guide.setAttribute('x1', best.cx); guide.setAttribute('x2', best.cx); guide.setAttribute('opacity', .7); tip.show(desc(best.e), best.cx * sx, best.cy * sx); }
     else { guide.setAttribute('opacity', 0); tip.hide(); }
-  });
-  overlay.addEventListener('mouseleave', () => { guide.setAttribute('opacity', 0); tip.hide(); });
+  };
+  overlay.addEventListener('pointermove', onMove); overlay.addEventListener('pointerdown', onMove);
+  overlay.addEventListener('pointerleave', () => { guide.setAttribute('opacity', 0); tip.hide(); });
 }
 
 // ---------- 渲染 ----------
@@ -905,31 +962,43 @@ function render() {
   if (P.chaseMax < P.chaseMin) alerts.push(T('aGap'));
   document.getElementById('alerts').innerHTML = alerts.map(a => `<div class="alert"><span class="ic">!</span><span>${a}</span></div>`).join('');
 
+  document.getElementById('miniSum').textContent = `${T('tRounds')} ${fmt(r.rounds.mean, 1)} · ${T('tThrows')} ${fmt(r.throws.mean, 1)}`;
+  last = { r, sample, id };
+  drawCharts();
+  const rArr = r.rounds.arr;
+  document.getElementById('roundsDesc').textContent = T('roundsDesc')(r.done);
+  if (sample.done) document.getElementById('sampleDesc').textContent = T('sampleDesc')(sampleIdx + 1, fmt(sample.time, 1), sample.throws, sample.hits, sample.drops, sample.rounds);
+  else document.getElementById('sampleDesc').textContent = T('sampleNone');
+  tablesRender(r, tables);
+}
+let last = null;
+function drawCharts() {
+  if (!last) return;
+  const { r, sample, id } = last;
   const rArr = r.rounds.arr; const maxR = Math.max(1, ...rArr);
   const rc = Array.from({ length: maxR }, (_, i) => i + 1);
   const rv = rc.map(k => rArr.filter(x => x === k).length / (rArr.length || 1));
   barChart(document.getElementById('roundsChart'), rc, rv, {
-    aria: T('roundsAria'), yfmt: v => fmt(v * 100, 0) + '%', xfmt: c => T('roundX')(c), labelAll: true,
+    aria: T('roundsAria'), labelW: LANG === 'zh' ? 4.2 : 3, yfmt: v => fmt(v * 100, 0) + '%', xfmt: c => T('roundX')(c), labelAll: true,
     color: (c) => c === id.rounds ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 55%, var(--surface))',
     tip: (c, v) => T('roundTip')(c, fmt(v * 100, 1), Math.round(v * rArr.length)),
   });
-  document.getElementById('roundsDesc').textContent = T('roundsDesc')(r.done);
 
   const tArr = r.throws.arr; const tMin = Math.min(...tArr), tMax = Math.max(...tArr);
   let bin = 1; while ((tMax - tMin) / bin > 24) bin++;
   const bins = []; for (let b = Math.floor(tMin / bin) * bin; b <= tMax; b += bin) bins.push(b);
   const bv = bins.map(b => tArr.filter(x => x >= b && x < b + bin).length / tArr.length);
   barChart(document.getElementById('throwsChart'), bins, bv, {
-    aria: T('throwsAria'), yfmt: v => fmt(v * 100, 0) + '%', xfmt: c => String(c), xlabel: T('throwsX'),
+    aria: T('throwsAria'), labelW: 2.6, yfmt: v => fmt(v * 100, 0) + '%', xfmt: c => String(c), xlabel: T('throwsX'),
     color: () => 'var(--accent)',
     tip: (c, v) => T('throwsTip')(bin === 1 ? String(c) : `${c}–${c + bin - 1}`, fmt(v * 100, 1)),
   });
 
-  if (sample.done) {
-    timelineChart(document.getElementById('timeline'), sample, P);
-    document.getElementById('sampleDesc').textContent = T('sampleDesc')(sampleIdx + 1, fmt(sample.time, 1), sample.throws, sample.hits, sample.drops, sample.rounds);
-  } else { document.getElementById('timeline').innerHTML = ''; document.getElementById('sampleDesc').textContent = T('sampleNone'); }
-
+  if (sample.done) timelineChart(document.getElementById('timeline'), sample, P);
+  else document.getElementById('timeline').innerHTML = '';
+}
+function tablesRender(r, tables) {
+  const rArr = r.rounds.arr;
   const Lv = r.levels, H1 = T('lvHead');
   document.getElementById('levelTbl').innerHTML =
     `<thead><tr>${H1.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>` +
@@ -963,11 +1032,20 @@ document.getElementById('langBtn').addEventListener('click', () => {
 
 // ---------- 交互 ----------
 const drawer = document.getElementById('drawer'), backdrop = document.getElementById('backdrop'), algoBtn = document.getElementById('algoBtn');
-function setDrawer(open) { drawer.classList.toggle('open', open); backdrop.classList.toggle('open', open); algoBtn.setAttribute('aria-expanded', open); drawer.setAttribute('aria-hidden', !open); if (open) document.getElementById('closeDrawer').focus(); }
+const paramsEl = document.getElementById('params'), paramsBtn = document.getElementById('paramsBtn');
+const mobile = () => window.matchMedia('(max-width: 820px)').matches;
+function syncBackdrop() { backdrop.classList.toggle('open', drawer.classList.contains('open') || paramsEl.classList.contains('open')); document.body.style.overflow = backdrop.classList.contains('open') && mobile() ? 'hidden' : ''; }
+function setDrawer(open) { if (open) setParams(false); drawer.classList.toggle('open', open); algoBtn.setAttribute('aria-expanded', open); drawer.setAttribute('aria-hidden', !open); syncBackdrop(); if (open) document.getElementById('closeDrawer').focus(); }
+function setParams(open) { if (open) { drawer.classList.remove('open'); algoBtn.setAttribute('aria-expanded', false); } paramsEl.classList.toggle('open', open); paramsBtn.setAttribute('aria-expanded', open); syncBackdrop(); }
+paramsBtn.addEventListener('click', () => setParams(!paramsEl.classList.contains('open')));
+document.getElementById('closeParams').addEventListener('click', () => { setParams(false); paramsBtn.focus(); });
+window.matchMedia('(max-width: 820px)').addEventListener('change', () => setParams(false));
+let lastW = 0;
+new ResizeObserver(entries => { const w = Math.round(entries[0].contentRect.width); if (w !== lastW) { lastW = w; requestAnimationFrame(drawCharts); } }).observe(document.getElementById('resultsInner'));
 algoBtn.addEventListener('click', () => setDrawer(!drawer.classList.contains('open')));
 document.getElementById('closeDrawer').addEventListener('click', () => { setDrawer(false); algoBtn.focus(); });
-backdrop.addEventListener('click', () => setDrawer(false));
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawer.classList.contains('open')) { setDrawer(false); algoBtn.focus(); } });
+backdrop.addEventListener('click', () => { setDrawer(false); setParams(false); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (drawer.classList.contains('open')) { setDrawer(false); algoBtn.focus(); } else if (paramsEl.classList.contains('open')) { setParams(false); paramsBtn.focus(); } });
 document.getElementById('resetAll').addEventListener('click', () => { Object.assign(P, DEFAULTS); for (const k in fieldEls) syncField(k); sampleIdx = 0; schedule(); });
 document.getElementById('nextSample').addEventListener('click', () => { sampleIdx++; render(); });
 
