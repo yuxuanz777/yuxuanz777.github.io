@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orb 击杀 Boss 模拟器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 左侧分组参数栏（可滚动） + 右侧结果区（摘要 → 分布 → 单局时间轴 → 连击节奏表）；算法说明为右侧抽屉 */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --ink: #14171c;
+  --ink-2: #4d5562;
+  --ink-3: #7c8594;
+  --line: #dde1e7;
+  --accent: #2a78d6;
+  --accent-soft: #e3eefb;
+  --weak: #1baf7a;
+  --weak-band: rgba(27, 175, 122, 0.13);
+  --warn: #b26b00;
+  --warn-soft: #fff4dd;
+  --bad: #c43c3b;
+  --changed: #eb6834;
+  --font-body: "IBM Plex Sans", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #191c21; --surface-2: #22262d; --ink: #eceef2; --ink-2: #b4bac5; --ink-3: #848c99;
+    --line: #2d323a; --accent: #3987e5; --accent-soft: #1c2a3d; --weak: #199e70; --weak-band: rgba(25, 158, 112, 0.18);
+    --warn: #e0a23a; --warn-soft: #2e2512; --bad: #e66767; --changed: #d95926; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #191c21; --surface-2: #22262d; --ink: #eceef2; --ink-2: #b4bac5; --ink-3: #848c99;
+  --line: #2d323a; --accent: #3987e5; --accent-soft: #1c2a3d; --weak: #199e70; --weak-band: rgba(25, 158, 112, 0.18);
+  --warn: #e0a23a; --warn-soft: #2e2512; --bad: #e66767; --changed: #d95926; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--font-body); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
+header {
+  display: flex; align-items: center; gap: 16px; padding: 12px 20px;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+}
+header h1 { font-size: 17px; font-weight: 600; margin: 0; text-wrap: balance; }
+header .sub { color: var(--ink-3); font-size: 12px; }
+header .spacer { flex: 1; }
+.btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; white-space: nowrap;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn[aria-expanded="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.main { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+.params { border-right: 1px solid var(--line); background: var(--surface); overflow-y: auto; padding: 8px 0 24px; }
+.results { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+details.group { border-bottom: 1px solid var(--line); }
+details.group > summary {
+  list-style: none; cursor: pointer; padding: 12px 18px; display: flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 13px;
+}
+details.group > summary::-webkit-details-marker { display: none; }
+details.group > summary .chev { transition: transform .15s; color: var(--ink-3); font-size: 11px; }
+details.group[open] > summary .chev { transform: rotate(90deg); }
+details.group > summary .count { margin-left: auto; font-size: 11px; color: var(--changed); font-weight: 500; }
+.group-body { padding: 0 18px 14px; display: flex; flex-direction: column; gap: 9px; }
+.group-note { color: var(--ink-3); font-size: 12px; margin: -2px 0 2px; }
+
+.field { display: grid; grid-template-columns: 1fr 112px; align-items: center; gap: 8px; }
+.field label { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; min-width: 0; }
+.field label .lbl { overflow-wrap: anywhere; }
+.src {
+  font: 500 10px/1 var(--font-num); padding: 3px 5px; border-radius: 4px; background: var(--surface-2);
+  color: var(--ink-3); flex-shrink: 0; letter-spacing: .02em;
+}
+.src.new { background: var(--accent-soft); color: var(--accent); }
+.src.guess { background: var(--warn-soft); color: var(--warn); }
+.inp { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); overflow: hidden; }
+.inp:focus-within { border-color: var(--accent); }
+.inp input, .inp select {
+  width: 100%; border: 0; background: transparent; padding: 5px 7px; font: 13px var(--font-num);
+  color: var(--ink); font-variant-numeric: tabular-nums; min-width: 0;
+}
+.inp input:focus, .inp select:focus { outline: none; }
+.inp .unit { font-size: 11px; color: var(--ink-3); padding-right: 7px; white-space: nowrap; }
+.field.changed label .lbl::after { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--changed); margin-left: 6px; vertical-align: middle; }
+.field.disabled { opacity: .45; }
+.reset-one { border: 0; background: none; color: var(--changed); cursor: pointer; padding: 0 2px; font-size: 12px; }
+
+.legend-src { padding: 10px 18px 4px; display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 11px; color: var(--ink-3); }
+.legend-src span { display: inline-flex; gap: 4px; align-items: center; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; min-width: 0; }
+.card h2 { font-size: 14px; font-weight: 600; margin: 0 0 2px; text-wrap: balance; }
+.card .desc { font-size: 12px; color: var(--ink-3); margin: 0 0 12px; }
+.card-head { display: flex; align-items: flex-start; gap: 12px; }
+.card-head > div { flex: 1; min-width: 0; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.tile.hero { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.tile .k { font-size: 12px; color: var(--ink-2); }
+.tile .v { font: 600 30px/1.15 var(--font-num); font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+.tile .v small { font-size: 14px; font-weight: 500; color: var(--ink-3); margin-left: 2px; }
+.tile .q { font: 12px var(--font-num); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tile .ideal { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 12px; color: var(--ink-2); }
+.tile .ideal b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.alerts { display: flex; flex-direction: column; gap: 8px; }
+.alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--ink); font-size: 13px; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.alert .ic { font: 600 11px/18px var(--font-num); color: var(--surface); background: var(--warn); border-radius: 50%; width: 18px; height: 18px; text-align: center; flex-shrink: 0; }
+
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--ink-3); font: 11px var(--font-num); }
+.chart .lab { fill: var(--ink-2); font-weight: 500; }
+.chart .grid line { stroke: var(--line); stroke-width: 1; }
+.chart .axis { stroke: var(--ink-3); stroke-width: 1; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--ink); color: var(--surface); font-size: 12px; line-height: 1.45;
+  padding: 7px 9px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .08s; z-index: 5;
+}
+.tip b { font-family: var(--font-num); }
+.tip.show { opacity: 1; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--ink-2); margin-top: 8px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -2px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+td { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.pill { display: inline-block; font: 500 11px/1 var(--font-body); padding: 3px 7px; border-radius: 99px; }
+.pill.ok { background: color-mix(in srgb, var(--weak) 16%, transparent); color: var(--weak); }
+.pill.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+
+/* 算法抽屉 */
+.drawer-backdrop { position: fixed; inset: 0; background: rgba(10, 12, 16, .28); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 20; }
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100%; width: min(560px, 100%); background: var(--surface);
+  border-left: 1px solid var(--line); box-shadow: -12px 0 32px rgba(0,0,0,.12); transform: translateX(100%);
+  transition: transform .22s ease; z-index: 21; display: flex; flex-direction: column;
+}
+.drawer.open { transform: none; }
+.drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-head { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.drawer-head h2 { margin: 0; font-size: 15px; flex: 1; }
+.drawer-body { overflow-y: auto; padding: 6px 22px 28px; font-size: 13.5px; line-height: 1.65; }
+.drawer-body h3 { font-size: 13.5px; margin: 20px 0 6px; }
+.drawer-body p, .drawer-body li { color: var(--ink-2); max-width: 65ch; }
+.drawer-body ol, .drawer-body ul { padding-left: 20px; margin: 6px 0; }
+.drawer-body code, .formula { font: 12.5px var(--font-num); }
+.formula { display: block; background: var(--surface-2); border-radius: 7px; padding: 8px 11px; margin: 6px 0; color: var(--ink); white-space: pre-wrap; }
+.drawer-body .srcline { font-size: 12px; color: var(--ink-3); }
+
+@media (max-width: 1100px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .grid2 { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .main { grid-template-columns: 1fr; }
+  .app { height: auto; } html, body { height: auto; }
+  .params { border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+  .results { overflow: visible; padding: 16px; }
+  header { flex-wrap: wrap; padding: 12px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <h1 data-i18n="title"></h1>
+      <div class="sub" data-i18n="subtitle"></div>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="langBtn" type="button" title="切换语言 / Switch language"></button>
+    <button class="btn" id="resetAll" type="button" data-i18n="resetAll"></button>
+    <button class="btn primary" id="algoBtn" type="button" aria-expanded="false" aria-controls="drawer" data-i18n="algo"></button>
+  </header>
+  <div class="main">
+    <aside class="params" id="params"></aside>
+    <main class="results">
+      <div class="tiles" id="tiles"></div>
+      <div class="alerts" id="alerts"></div>
+      <div class="grid2">
+        <section class="card">
+          <h2 data-i18n="roundsTitle"></h2>
+          <p class="desc" id="roundsDesc"></p>
+          <div class="chart" id="roundsChart"></div>
+        </section>
+        <section class="card">
+          <h2 data-i18n="throwsTitle"></h2>
+          <p class="desc" data-i18n="throwsDesc"></p>
+          <div class="chart" id="throwsChart"></div>
+        </section>
+      </div>
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <h2 data-i18n="sampleTitle"></h2>
+            <p class="desc" id="sampleDesc"></p>
+          </div>
+          <button class="btn" id="nextSample" type="button" data-i18n="nextSample"></button>
+        </div>
+        <div class="chart" id="timeline"></div>
+        <div class="legend">
+          <span><i style="background:var(--weak-band);border:1px solid var(--weak)"></i><span data-i18n="lgWeak"></span></span>
+          <span><i style="background:var(--accent)"></i><span data-i18n="lgHP"></span></span>
+          <span><i style="background:var(--accent);border-radius:50%"></i><span data-i18n="lgHit"></span></span>
+          <span><i style="background:var(--bad);border-radius:50%"></i><span data-i18n="lgDrop"></span></span>
+        </div>
+      </section>
+      <section class="card">
+        <h2 data-i18n="levelTitle"></h2>
+        <p class="desc" data-i18n="levelDesc"></p>
+        <div class="tbl-wrap"><table id="levelTbl"></table></div>
+      </section>
+      <section class="card">
+        <h2 data-i18n="roundTblTitle"></h2>
+        <p class="desc" data-i18n="roundTblDesc"></p>
+        <div class="tbl-wrap"><table id="roundTbl"></table></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="drawer-backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h2 data-i18n="algo"></h2>
+    <button class="btn" id="closeDrawer" type="button" data-i18n="close"></button>
+  </div>
+  <div class="drawer-body" lang="zh-CN" data-lang="zh">
+    <h3>1. 一次出手的完整流程</h3>
+    <ol>
+      <li>持球玩家只在 Weak 阶段出手。不在 Weak 时持球等待，下一次 Weak 开始后经过「进入 Weak 后出手反应」再投。</li>
+      <li>球飞向 Boss，按命中率判定。未命中则球落地变成 Idle：连击清零，经过「捡球耗时」后由另一名玩家继续。</li>
+      <li>命中时按命中那一刻的 Boss 状态结算伤害，Boss 扣血。</li>
+      <li>球自动回弹给另一名玩家（<code>RedirectToTeammate</code>）。回弹在物理上没进接球圈就落地，或按接球率没接住，都算掉球，连击清零。</li>
+      <li>接住时连击 +1，接球后冷却 0.75 s；下一次出手等待 max(冷却, 瞄准耗时)。</li>
+    </ol>
+
+    <h3>2. 伤害</h3>
+    <span class="formula">Weak 中：伤害 = BaseOrbDamage × (1 + DamageRatioPerRebound × min(n, nMaxRebound)) × (1 + 每轮加伤 × (k − 1))
+非 Weak：伤害 = 非 Weak 伤害（当前 1，不吃连击和轮次加成）
+HP = Clamp(HP − 伤害, 0, MaxHP)；HP ≤ 0 时 Boss 死亡</span>
+    <p>n 是连击数（<code>nReboundCount</code>），k 是第几轮 Weak。勾选「第 1 轮也加成」时公式里的 (k − 1) 改为 k。</p>
+    <p class="srcline">来源：MyOrbActor::GetFinalOrbDamage；BP_Enemy「HP Damage」事件（EnemyState == Weakened 时取 FinalDamage，否则取 1.0）。每轮加伤是规划中的参数，游戏里还没有。</p>
+
+    <h3>3. 连击数 n 与回弹计数 R</h3>
+    <ul>
+      <li>n：每接住一次 +1（普通接和 Perfect 接相同），上限 nMaxRebound。</li>
+      <li>R：每次打中 Boss 先 +1 再算回弹速度，没有上限（只受最大速度限制）。</li>
+      <li>两者只在球进入 Idle 状态时清零（<code>SetOrbState(Idle) → ResetRebound</code>）。会进入 Idle 的情况：球在地上停住（没打中 / 没接住）、接球拉回途中接球人失效、球出界重生、玩家掉落重生时带着的球被传送、团灭或读档重置。</li>
+      <li>Weak 结束、持球时长、不打 Boss 直接互传、玩家受伤，都不会清零。所以只在 Weak 出手的策略下，Weak 结束时手里有球，连击会保留到下一轮。</li>
+    </ul>
+    <p class="srcline">来源：DreamCatchersCharacter::ExecuteCatch → IncrementRebound；MyOrbActor::HandleStateChange 的 Idle 分支；OnProjectileStop、TeleportToRespawn。</p>
+
+    <h3>4. 投掷飞行时间</h3>
+    <span class="formula">投速 v = 基础速度 × (1 + ThrowSpeedRatioPerRebound × n)，不超过 BaseMaxSpeed
+  快速投掷：基础速度 = BaseThrowSpeed，重力缩放 = BaseGravityScale
+  瞄准投掷：基础速度 = Lerp(AimThrowSpeed, AimThrowSpeedMax, 蓄力)，重力缩放 = Lerp(AimThrowGravityScale, AimGravityScaleMax, 蓄力)
+飞行时间 = d / (v · cos θ)，θ 为能命中 (d, 受击点高度) 的低弧解</span>
+    <p>游戏里的投掷不追踪目标（代码注释写明自动瞄准未实现，Target 恒为空），出手仰角 = 准星方向 + atan(ThrowArcZ)。模拟器假设玩家会把准星压到刚好命中的角度，所以直接用抛体低弧解。超出最大射程时页面会提示，并按 45° 估算飞行时间。</p>
+
+    <h3>5. 回弹飞行（会随 R 加速）</h3>
+    <span class="formula">回弹速度 = BaseThrowSpeed × 0.7 + R × 100，不超过 BaseMaxSpeed
+仰角 = max(指向队友的仰角, MinimumLaunchPitchDegrees)
+重力 = 980 × 本次投掷的重力缩放（回弹沿用投掷时的重力）</span>
+    <p>从 Boss 受击点出发做逐帧积分（1/240 s），直到球与接球手的距离 ≤ rCatchMaxRadius（400 cm）。之后按「进圈时的球速 × 接球拉回倍率」直线拉到手上（停在 CatchAttachDistance）。进圈前跌到地面以下就判定落地掉球。命中瞬间另加顿帧 0.06 s。</p>
+    <p class="srcline">0.7 与 +100 是 RedirectToTeammate 里写死的常量，模拟器里可调，方便试新数值。</p>
+
+    <h3>6. Weak 节奏</h3>
+    <span class="formula">开局追击 U(间隔最短, 间隔最长) → Weak U(基础 − 偏差, 基础 + 偏差) → 追击 → Weak …</span>
+    <p>Weak 时长来自 BT_AI 的 Weaken 分支（Wait 12 s，随机偏差 3 s，UE 的 BTTask_Wait 在 ±偏差内均匀随机）。两次 Weak 之间的间隔取决于玩家多久能触发声控陷阱，这里按 10–20 s 均匀随机假设。伤害只看命中瞬间是不是 Weak：在 Weak 末尾出手、命中时 Weak 已结束，只扣 1 点。</p>
+
+    <h3>7. 统计方式</h3>
+    <ul>
+      <li>蒙特卡洛：用固定种子跑 N 局（默认 2000）。调参后用同一串随机数重算，对比更稳定。</li>
+      <li>「理想情况」：命中率和接球率都按 100%，Weak 时长取基础值，追击间隔取中值，跑一局确定结果。</li>
+      <li>「在第几轮 Weak 击杀」= 击杀时所处的 Weak 轮次；若击杀发生在 Weak 外（飞行中跨出 Weak），记为已结束的 Weak 轮数。</li>
+    </ul>
+
+    <h3>8. 已知简化</h3>
+    <ul>
+      <li>没有模拟 Boss 的技能、位移和对玩家的威胁；Weak 期间 Boss 停止移动（AIMoveStop），所以距离按固定值处理。</li>
+      <li>玩家与 Boss 的距离、受击点高度、手部高度、命中率、接球率都是假设值，需要按关卡实际情况调。</li>
+      <li>空气阻力在 DA 中为 0，未建模；Perfect Catch 不影响伤害，只给位移，也未建模。</li>
+      <li>BT_AI 有 EnemyHealth ≤ 90 / 60 / 40 的技能分支，只改变追击期行为，不影响伤害，未建模。</li>
+    </ul>
+  </div>
+
+  <div class="drawer-body" lang="en" data-lang="en" hidden>
+    <h3>1. One throw, step by step</h3>
+    <ol>
+      <li>The player holding the orb only throws during a Weak phase. Outside Weak they hold it, and throw once the next Weak starts plus the "Reaction after Weak starts" delay.</li>
+      <li>The orb flies at the Boss and rolls against the hit rate. On a miss it lands and goes Idle: the streak resets, and the other player continues after the "Pickup time after a drop".</li>
+      <li>On a hit, damage is resolved by the Boss state at the moment of impact and subtracted from its HP.</li>
+      <li>The orb auto-rebounds to the other player (<code>RedirectToTeammate</code>). If the rebound physically hits the ground before reaching the catch radius, or the catch roll fails, the orb is dropped and the streak resets.</li>
+      <li>A catch adds +1 to the streak and starts a 0.75 s throw cooldown; the next throw waits max(cooldown, aim time).</li>
+    </ol>
+
+    <h3>2. Damage</h3>
+    <span class="formula">In Weak:   damage = BaseOrbDamage × (1 + DamageRatioPerRebound × min(n, nMaxRebound)) × (1 + per-round bonus × (k − 1))
+Not Weak:  damage = non-Weak damage (currently 1; no streak or round bonus)
+HP = Clamp(HP − damage, 0, MaxHP); the Boss dies at HP ≤ 0</span>
+    <p>n is the catch streak (<code>nReboundCount</code>), k is the Weak round number. With "Bonus applies from round 1" checked, (k − 1) becomes k.</p>
+    <p class="srcline">Source: MyOrbActor::GetFinalOrbDamage; BP_Enemy "HP Damage" event (uses FinalDamage when EnemyState == Weakened, otherwise 1.0). The per-round bonus is a planned parameter and does not exist in the game yet.</p>
+
+    <h3>3. Streak n and rebound count R</h3>
+    <ul>
+      <li>n: +1 on every catch (normal and Perfect catches count the same), capped at nMaxRebound.</li>
+      <li>R: +1 each time the orb hits the Boss, before the rebound speed is computed; uncapped (only limited by max speed).</li>
+      <li>Both reset only when the orb enters the Idle state (<code>SetOrbState(Idle) → ResetRebound</code>). The orb goes Idle when it comes to rest on the ground (missed or not caught), when the catcher becomes invalid during the catch pull, when it respawns after going out of bounds, when a player who falls off the map respawns carrying it, and on a team wipe or checkpoint reset.</li>
+      <li>The end of a Weak phase, how long the orb is held, passing without hitting the Boss, and player damage do not reset it. So with the Weak-only strategy, a streak held at the end of a Weak phase carries into the next one.</li>
+    </ul>
+    <p class="srcline">Source: DreamCatchersCharacter::ExecuteCatch → IncrementRebound; the Idle branch of MyOrbActor::HandleStateChange; OnProjectileStop, TeleportToRespawn.</p>
+
+    <h3>4. Throw flight time</h3>
+    <span class="formula">throw speed v = base speed × (1 + ThrowSpeedRatioPerRebound × n), capped at BaseMaxSpeed
+  Quick throw: base speed = BaseThrowSpeed, gravity scale = BaseGravityScale
+  Aimed throw: base speed = Lerp(AimThrowSpeed, AimThrowSpeedMax, charge), gravity scale = Lerp(AimThrowGravityScale, AimGravityScaleMax, charge)
+flight time = d / (v · cos θ), θ = low-arc angle that reaches (d, hit-point height)</span>
+    <p>Throws in the game do not home in on targets (the code notes auto-aim is not implemented, so Target is always null); launch pitch = crosshair direction + atan(ThrowArcZ). The simulator assumes players aim just right to hit, so it uses the low-arc projectile solution. If the target is beyond max range, the page shows a warning and estimates flight time at 45°.</p>
+
+    <h3>5. Rebound flight (speeds up with R)</h3>
+    <span class="formula">rebound speed = BaseThrowSpeed × 0.7 + R × 100, capped at BaseMaxSpeed
+pitch = max(pitch toward teammate, MinimumLaunchPitchDegrees)
+gravity = 980 × this throw's gravity scale (the rebound keeps the throw's gravity)</span>
+    <p>Integrated per frame (1/240 s) from the Boss hit point until the orb is within rCatchMaxRadius (400 cm) of the catcher. It is then pulled in a straight line at "speed on entering the radius × catch pull multiplier" and attaches at CatchAttachDistance. Falling below ground before entering the radius counts as a drop. A 0.06 s hit stop is added on each hit.</p>
+    <p class="srcline">0.7 and +100 are constants hard-coded in RedirectToTeammate; they are adjustable here so new values can be tried.</p>
+
+    <h3>6. Weak timing</h3>
+    <span class="formula">Opening chase U(gap min, gap max) → Weak U(base − deviation, base + deviation) → chase → Weak …</span>
+    <p>Weak duration comes from the Weaken branch in BT_AI (Wait 12 s with 3 s random deviation; UE's BTTask_Wait samples uniformly within ±deviation). The gap between Weak phases depends on how fast players trigger the sound trap and is assumed uniform in 10–20 s. Damage only checks whether the Boss is Weak at impact: a throw released late in Weak that lands after Weak ends deals 1.</p>
+
+    <h3>7. Statistics</h3>
+    <ul>
+      <li>Monte Carlo: N runs (default 2000) with a fixed seed. After a parameter change the same random sequence is reused, so comparisons are stable.</li>
+      <li>"Ideal case": 100% hit and catch rate, Weak at its base duration, gaps at their midpoint; one deterministic run.</li>
+      <li>"Kill round" = the Weak round in progress at the kill; if the kill lands outside Weak (an in-flight throw that crosses the end of Weak), it counts the number of finished Weak rounds.</li>
+    </ul>
+
+    <h3>8. Known simplifications</h3>
+    <ul>
+      <li>Boss skills, movement and threat to players are not simulated; the Boss stops moving during Weak (AIMoveStop), so distances are fixed.</li>
+      <li>Player-to-Boss distances, hit-point height, hand height, hit rate and catch rate are assumptions; tune them to the actual level.</li>
+      <li>Air drag is 0 in the DA and not modeled; Perfect Catch only gives movement, not damage, and is not modeled.</li>
+      <li>BT_AI has skill branches at EnemyHealth ≤ 90 / 60 / 40; they only change chase behavior, not damage, and are not modeled.</li>
+    </ul>
+  </div>
+</aside>
+
+<script>
+// ===== Orb vs Boss simulation engine (pure functions, no DOM) =====
+const DEFAULTS = {
+  // 伤害
+  baseDamage: 5, ratioPerRebound: 0.1, maxRebound: 5, maxHP: 100, nonWeakDamage: 1,
+  weakBonus: 0.10, bonusFromFirst: 0,
+  // Weak 节奏
+  weakBase: 12, weakDev: 3, chaseMin: 10, chaseMax: 20,
+  // 投掷
+  throwType: 0, charge: 0, baseThrowSpeed: 1400, aimThrowSpeed: 1400, aimThrowSpeedMax: 1650,
+  speedRatioPerRebound: 0.15, baseGravityScale: 1.0, aimGravityScale: 1.0, aimGravityScaleMax: 0.9,
+  maxSpeed: 5000, worldGravity: 980,
+  // 回弹与接球
+  reboundScale: 0.7, reboundAddPerHit: 100, minLaunchPitch: 20, hitStop: 0.06,
+  catchRadius: 400, catchSpeedMult: 3.0, attachDist: 25, cooldown: 0.75,
+  // 场景与玩家
+  distA: 800, distB: 800, bossHitHeight: 30, handHeight: 100,
+  hitRate: 0.9, catchRate: 0.95, aimTime: 0.5, weakReact: 0.5, pickupTime: 3.0,
+  // 模拟
+  runs: 2000, seed: 7,
+};
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 投掷：速度、重力缩放（与 MyOrbActor::GetLaunchSpeed / GetThrowGravityScale 一致）
+function throwSpeed(P, n) {
+  const aimed = P.throwType === 1;
+  const base = aimed ? P.aimThrowSpeed + (P.aimThrowSpeedMax - P.aimThrowSpeed) * P.charge : P.baseThrowSpeed;
+  return Math.min(base * (1 + P.speedRatioPerRebound * Math.min(n, P.maxRebound)), P.maxSpeed);
+}
+function gravityScale(P) {
+  return P.throwType === 1 ? P.aimGravityScale + (P.aimGravityScaleMax - P.aimGravityScale) * P.charge : P.baseGravityScale;
+}
+
+// 抛体低弧解：水平距离 d、目标高度差 h，返回 { t, pitch, reachable }
+function ballisticTime(v, d, h, g) {
+  const disc = v ** 4 - g * (g * d * d + 2 * h * v * v);
+  if (disc < 0) {
+    const pitch = Math.PI / 4;
+    return { t: d / (v * Math.cos(pitch)), pitch, reachable: false };
+  }
+  const pitch = Math.atan((v * v - Math.sqrt(disc)) / (g * d));
+  return { t: d / (v * Math.cos(pitch)), pitch, reachable: true };
+}
+
+// 回弹：RedirectToTeammate 速度 + 最小仰角，数值积分直到进入接球圈
+function reboundSpeed(P, R) {
+  return Math.min(P.baseThrowSpeed * P.reboundScale + R * P.reboundAddPerHit, P.maxSpeed);
+}
+function reboundFlight(P, R, dist) {
+  const v = reboundSpeed(P, R);
+  const g = P.worldGravity * gravityScale(P);
+  const dirPitch = Math.atan2(-P.bossHitHeight, dist);
+  const pitch = Math.max(dirPitch, P.minLaunchPitch * Math.PI / 180);
+  let x = 0, z = P.bossHitHeight, vx = v * Math.cos(pitch), vz = v * Math.sin(pitch), t = 0;
+  const dt = 1 / 240;
+  while (t < 6) {
+    const dd = Math.hypot(dist - x, z);
+    if (dd <= P.catchRadius) {
+      const sp = Math.hypot(vx, vz);
+      const pull = Math.max(0, dd - P.attachDist) / Math.max(1, sp * P.catchSpeedMult);
+      return { ok: true, tFly: t, tPull: pull, v, pitch, arriveSpeed: sp };
+    }
+    if (z < -P.handHeight) return { ok: false, tFly: t, tPull: 0, v, pitch, reason: '落地' };
+    if (x > dist + P.catchRadius) return { ok: false, tFly: t, tPull: 0, v, pitch, reason: '飞过' };
+    x += vx * dt; vz -= g * dt; z += vz * dt; t += dt;
+  }
+  return { ok: false, tFly: t, tPull: 0, v, pitch, reason: '超时' };
+}
+
+function weakDamage(P, n, k) {
+  const bonusRounds = P.bonusFromFirst ? k : k - 1;
+  return P.baseDamage * (1 + P.ratioPerRebound * Math.min(n, P.maxRebound)) * (1 + P.weakBonus * Math.max(0, bonusRounds));
+}
+
+// 预计算：按连击 n / 回弹计数 R 缓存
+function makeTables(P) {
+  const g = P.worldGravity * gravityScale(P);
+  const throwT = { A: [], B: [] };
+  for (let n = 0; n <= P.maxRebound; n++) {
+    const v = throwSpeed(P, n);
+    throwT.A.push(ballisticTime(v, P.distA, P.bossHitHeight, g));
+    throwT.B.push(ballisticTime(v, P.distB, P.bossHitHeight, g));
+  }
+  const cache = { A: new Map(), B: new Map() };
+  const reb = (who, R) => {
+    const m = cache[who];
+    if (!m.has(R)) m.set(R, reboundFlight(P, R, who === 'A' ? P.distA : P.distB));
+    return m.get(R);
+  };
+  return { throwT, reb };
+}
+
+// 单局模拟。rng=null 表示理想情况（100% 命中/接住、Weak/追击取均值）
+function simulateRun(P, rng, tables, record) {
+  const ideal = !rng;
+  const rnd = rng || (() => 0.5);
+  // Weak 时间表：追击 → Weak → 追击 …
+  const phases = []; // {start, end, k}
+  let cursor = 0;
+  const ensure = (t) => {
+    while (!phases.length || phases[phases.length - 1].end <= t) {
+      const cMax = Math.max(P.chaseMin, P.chaseMax);
+      const chase = ideal ? (P.chaseMin + cMax) / 2 : P.chaseMin + (cMax - P.chaseMin) * rnd();
+      const weak = ideal ? P.weakBase : P.weakBase + P.weakDev * (2 * rnd() - 1);
+      const start = cursor + chase;
+      phases.push({ start, end: start + Math.max(0.1, weak), k: phases.length + 1 });
+      cursor = start + Math.max(0.1, weak);
+    }
+  };
+  const weakAt = (t) => { ensure(t); for (const p of phases) if (t >= p.start && t < p.end) return p; return null; };
+  const nextWeak = (t) => { ensure(t); for (const p of phases) if (p.start >= t) return p; ensure(cursor + 1); return nextWeak(t); };
+
+  const hitRate = ideal ? 1 : P.hitRate, catchRate = ideal ? 1 : P.catchRate;
+  let hp = P.maxHP, n = 0, R = 0, holder = 'A', t = 0;
+  let throws = 0, hits = 0, drops = 0, physDrops = 0, ready = 0;
+  const events = record ? [] : null;
+  const dmgByRound = {};
+  let guard = 0;
+  while (hp > 0 && guard++ < 5000 && t < 3600) {
+    // 出手时刻：只在 Weak 中出手
+    let tr = ready;
+    let ph = weakAt(tr);
+    if (!ph) { const nw = nextWeak(tr); tr = nw.start + P.weakReact; ph = weakAt(tr); if (!ph) { ready = nw.end; continue; } }
+    throws++;
+    const thr = tables.throwT[holder][n];
+    const tHit = tr + thr.t;
+    const other = holder === 'A' ? 'B' : 'A';
+    if (rnd() >= hitRate && !ideal) {
+      drops++; n = 0; R = 0;
+      if (events) events.push({ t: tHit, type: 'miss', hp, who: holder });
+      holder = other; ready = tHit + P.pickupTime; t = ready; continue;
+    }
+    if (ideal && hitRate < 1) {} // unreachable
+    // 命中
+    const phHit = weakAt(tHit);
+    const dmg = phHit ? weakDamage(P, n, phHit.k) : P.nonWeakDamage;
+    hp = Math.max(0, hp - dmg); hits++;
+    const roundKey = phHit ? phHit.k : 0;
+    dmgByRound[roundKey] = (dmgByRound[roundKey] || 0) + dmg;
+    if (events) events.push({ t: tHit, type: 'hit', hp, dmg, n, weak: !!phHit, k: phHit ? phHit.k : null, who: holder });
+    if (hp <= 0) {
+      t = tHit;
+      const lastWeak = phHit ? phHit.k : (phases.filter(p => p.end <= tHit).length);
+      return { done: true, time: tHit, throws, hits, drops, physDrops, rounds: lastWeak, killedInWeak: !!phHit, dmgByRound, events, phases };
+    }
+    // 回弹给队友（打到 Boss 才会回弹）
+    R++;
+    const rb = tables.reb(other, R);
+    const tArrive = tHit + P.hitStop + rb.tFly;
+    if (!rb.ok || (!ideal && rnd() >= catchRate)) {
+      drops++; if (!rb.ok) physDrops++;
+      n = 0; R = 0;
+      if (events) events.push({ t: tArrive, type: rb.ok ? 'drop' : 'fall', hp, who: other });
+      holder = other; ready = tArrive + P.pickupTime; t = ready; continue;
+    }
+    n = Math.min(n + 1, P.maxRebound);
+    holder = other;
+    const tCaught = tArrive + rb.tPull;
+    if (events) events.push({ t: tCaught, type: 'catch', hp, n, who: other });
+    ready = tCaught + Math.max(P.cooldown, P.aimTime);
+    t = ready;
+  }
+  return { done: false, time: t, throws, hits, drops, physDrops, rounds: phases.length, dmgByRound, events, phases };
+}
+
+function quantile(sorted, q) {
+  if (!sorted.length) return NaN;
+  const i = (sorted.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+}
+
+function runAll(P) {
+  const tables = makeTables(P);
+  const rng = mulberry32(P.seed >>> 0);
+  const res = { throws: [], hits: [], rounds: [], time: [], drops: [], physDrops: 0, unfinished: 0, roundDmg: {} };
+  let sample = null;
+  for (let i = 0; i < P.runs; i++) {
+    const r = simulateRun(P, rng, tables, i === 0);
+    if (i === 0) sample = r;
+    if (!r.done) { res.unfinished++; continue; }
+    res.throws.push(r.throws); res.hits.push(r.hits); res.rounds.push(r.rounds); res.time.push(r.time); res.drops.push(r.drops);
+    res.physDrops += r.physDrops;
+    for (const k in r.dmgByRound) res.roundDmg[k] = (res.roundDmg[k] || 0) + r.dmgByRound[k];
+  }
+  const ideal = simulateRun(P, null, tables, true);
+  const stat = (arr) => {
+    const s = arr.slice().sort((a, b) => a - b);
+    return { mean: s.reduce((a, b) => a + b, 0) / (s.length || 1), p50: quantile(s, 0.5), p90: quantile(s, 0.9), min: s[0], max: s[s.length - 1], arr };
+  };
+  // 每级连击的物理/节奏表
+  const levels = [];
+  for (let n = 0; n <= P.maxRebound; n++) {
+    const thrA = tables.throwT.A[n];
+    const rbB = tables.reb('B', n + 1);
+    const cycle = thrA.t + P.hitStop + rbB.tFly + rbB.tPull + Math.max(P.cooldown, P.aimTime);
+    levels.push({ n, speed: throwSpeed(P, n), tThrow: thrA.t, reach: thrA.reachable, dmg: weakDamage(P, n, 1),
+      rSpeed: rbB.v, tReb: rbB.tFly + rbB.tPull, rOk: rbB.ok, rReason: rbB.reason, cycle });
+  }
+  return { n: P.runs, done: P.runs - res.unfinished, unfinished: res.unfinished,
+    throws: stat(res.throws), hits: stat(res.hits), rounds: stat(res.rounds), time: stat(res.time), drops: stat(res.drops),
+    physDrops: res.physDrops, roundDmg: res.roundDmg, sample, ideal, levels, tables };
+}
+
+if (typeof module !== 'undefined') module.exports = { DEFAULTS, runAll, simulateRun, makeTables, weakDamage, reboundFlight, ballisticTime, throwSpeed };
+
+</script>
+<script>
+const I18N = {
+  zh: {
+    docTitle: 'Orb 击杀 Boss 模拟器', title: 'Orb 击杀 Boss 模拟器',
+    subtitle: '两名玩家轮流投掷 · 只在 Weak 阶段出手 · 默认值取自 DA_TestPlayer / BP_Enemy / BT_AI（2026-11-16）',
+    langBtn: 'English', resetAll: '恢复默认', algo: '算法说明', close: '关闭', params: '参数',
+    roundsTitle: '在第几轮 Weak 击杀', throwsTitle: '投掷次数分布', throwsDesc: '每局从开局到击杀的总出手次数（含未命中）',
+    sampleTitle: '单局示例', nextSample: '换一局',
+    lgWeak: 'Weak 阶段', lgHP: 'Boss 血量', lgHit: '命中', lgDrop: '掉球（未命中 / 没接住 / 回弹落地）',
+    levelTitle: '每级连击的节奏', levelDesc: '按玩家 A 投向 Boss、回弹给玩家 B 计算；伤害按第 1 轮 Weak（未加轮次加成）',
+    roundTblTitle: '各轮 Weak 平均伤害', roundTblDesc: '所有模拟局里，每轮 Weak 平均打掉的血量（「Weak 外」是飞行中跨出 Weak 后的 1 点伤害）',
+    srcLegend: [['DA', 'DA_TestPlayer'], ['BP', 'BP_Enemy'], ['BT', 'BT_AI'], ['C++', '代码常量'], ['假设', '按关卡调', 'guess'], ['新增', '规划参数', 'new']],
+    changedN: n => `已改 ${n} 项`, resetOne: '恢复默认值',
+    tRounds: '需要几轮 Weak', tThrows: '投掷次数', tHits: '命中次数', tTime: '击杀用时',
+    uRound: '轮', uTimes: '次', uSec: 's',
+    q: (a, b) => `中位 ${a} · P90 ${b}`, ideal: '理想情况',
+    idealRound: k => `第 ${k} 轮击杀`, idealNo: '无法击杀', idealTimes: n => `${n} 次`,
+    roundsDesc: n => `各模拟局中 Boss 死亡时所处的 Weak 轮次；深色柱为理想情况所在轮次（共 ${n} 局）`,
+    roundX: k => `第${k}轮`, roundTip: (k, p, n) => `第 <b>${k}</b> 轮 Weak 击杀<br><b>${p}%</b> 的局（${n} 局）`,
+    throwsX: '次', throwsTip: (lab, p) => `<b>${lab}</b> 次<br>${p}% 的局`,
+    sampleDesc: (i, t, th, h, d, k) => `第 ${i} 局：${t} s 击杀，投掷 ${th} 次、命中 ${h} 次、掉球 ${d} 次，在第 ${k} 轮 Weak 击杀`,
+    sampleNone: '这一局 1 小时内没有击杀。',
+    who: w => w === 'A' ? '玩家 A' : '玩家 B',
+    evHit: (t, w, dmg, ctx, hp) => `<b>${t}s</b> ${w} 命中<br>伤害 <b>${dmg}</b>（${ctx}）<br>剩余 HP <b>${hp}</b>`,
+    ctxWeak: (k, n) => `Weak 第 ${k} 轮 · 连击 ${n}`, ctxNon: '非 Weak',
+    evMiss: (t, w) => `<b>${t}s</b> ${w} 未命中<br>连击清零`, evFall: (t, w) => `<b>${t}s</b> 回弹够不到 ${w}，落地<br>连击清零`, evDrop: (t, w) => `<b>${t}s</b> ${w} 没接住<br>连击清零`,
+    aThrow: ns => `以当前投速，连击 ${ns} 时投不到 Boss（超出最大射程），按 45° 估算了飞行时间。`,
+    aReb: (w, d, ns, fell, per) => `回弹给玩家 ${w}（距 Boss ${d} cm）在连击 ${ns} 时${fell ? '没进接球圈就落地' : '接不到'}，每次都会掉球、连击清零（平均 ${per} 次/局）。可拉近站位、提高回弹速度或扩大接球圈。`,
+    aUnf: n => `${n} 局在 1 小时内没有击杀，已从统计中剔除。`, aGap: '「两次 Weak 间隔」最长小于最短，已按最短处理。',
+    sep: '、',
+    lvHead: ['连击 n', '投速 cm/s', '投掷飞行 s', 'Weak 伤害', '回弹速度 cm/s', '回弹+拉回 s', '一轮循环 s', 'Weak 基础时长内约可出手', '回弹到 A / B'],
+    cap: ' (上限)', perWeak: v => `${v} 次`, rOk: w => `${w} 可接`, reason: { '落地': '落地', '飞过': '飞过', '超时': '超时' },
+    rdHead: ['Weak 轮次', '加伤倍率', '平均伤害 / 局', '进入该轮的局占比', '进入该轮时平均伤害'],
+    rdOut: 'Weak 外', rdRound: k => `第 ${k} 轮`,
+    timelineAria: '单局 Boss 血量时间轴', roundsAria: '击杀轮次分布', throwsAria: '投掷次数分布',
+  },
+  en: {
+    docTitle: 'Orb vs Boss Kill Simulator', title: 'Orb vs Boss Kill Simulator',
+    subtitle: 'Two players alternate throws · throws only during Weak · defaults from DA_TestPlayer / BP_Enemy / BT_AI (2026-11-16)',
+    langBtn: '中文', resetAll: 'Reset all', algo: 'How it works', close: 'Close', params: 'Parameters',
+    roundsTitle: 'Weak round of the kill', throwsTitle: 'Throws per kill', throwsDesc: 'Total throws per run from start to kill, misses included',
+    sampleTitle: 'Sample run', nextSample: 'Next run',
+    lgWeak: 'Weak phase', lgHP: 'Boss HP', lgHit: 'Hit', lgDrop: 'Drop (miss / not caught / rebound fell short)',
+    levelTitle: 'Timing per streak level', levelDesc: 'Player A throws at the Boss and the orb rebounds to player B; damage shown for Weak round 1 (no round bonus)',
+    roundTblTitle: 'Average damage per Weak round', roundTblDesc: 'Average HP removed in each Weak round across all runs ("Outside Weak" = 1-point hits from throws that land after Weak ends)',
+    srcLegend: [['DA', 'DA_TestPlayer'], ['BP', 'BP_Enemy'], ['BT', 'BT_AI'], ['C++', 'code constant'], ['Assumed', 'tune per level', 'guess'], ['New', 'planned', 'new']],
+    changedN: n => `${n} changed`, resetOne: 'Reset to default',
+    tRounds: 'Weak rounds needed', tThrows: 'Throws', tHits: 'Hits', tTime: 'Time to kill',
+    uRound: '', uTimes: '', uSec: 's',
+    q: (a, b) => `median ${a} · P90 ${b}`, ideal: 'Ideal case',
+    idealRound: k => `kill in round ${k}`, idealNo: 'no kill', idealTimes: n => `${n}`,
+    roundsDesc: n => `Weak round in progress when the Boss dies; the darker bar is the ideal case (${n} runs)`,
+    roundX: k => `R${k}`, roundTip: (k, p, n) => `Kill in Weak round <b>${k}</b><br><b>${p}%</b> of runs (${n})`,
+    throwsX: 'throws', throwsTip: (lab, p) => `<b>${lab}</b> throws<br>${p}% of runs`,
+    sampleDesc: (i, t, th, h, d, k) => `Run ${i}: kill at ${t} s, ${th} throws, ${h} hits, ${d} drops, killed in Weak round ${k}`,
+    sampleNone: 'This run did not kill the Boss within 1 hour.',
+    who: w => w === 'A' ? 'Player A' : 'Player B',
+    evHit: (t, w, dmg, ctx, hp) => `<b>${t}s</b> ${w} hit<br>Damage <b>${dmg}</b> (${ctx})<br>HP left <b>${hp}</b>`,
+    ctxWeak: (k, n) => `Weak round ${k} · streak ${n}`, ctxNon: 'not Weak',
+    evMiss: (t, w) => `<b>${t}s</b> ${w} missed<br>Streak reset`, evFall: (t, w) => `<b>${t}s</b> Rebound fell short of ${w}<br>Streak reset`, evDrop: (t, w) => `<b>${t}s</b> ${w} failed the catch<br>Streak reset`,
+    aThrow: ns => `At the current throw speed the Boss is out of range at streak ${ns}; flight time is estimated at 45°.`,
+    aReb: (w, d, ns, fell, per) => `The rebound to player ${w} (${d} cm from the Boss) ${fell ? 'hits the ground before reaching the catch radius' : 'cannot be caught'} at streak ${ns}, so every such rebound drops and resets the streak (${per} per run on average). Move closer, raise rebound speed, or enlarge the catch radius.`,
+    aUnf: n => `${n} runs did not kill the Boss within 1 hour and were excluded.`, aGap: 'Weak gap max is below min; min is used.',
+    sep: ', ',
+    lvHead: ['Streak n', 'Throw speed cm/s', 'Throw flight s', 'Weak damage', 'Rebound speed cm/s', 'Rebound + pull s', 'Cycle s', 'Throws per base Weak', 'Rebound to A / B'],
+    cap: ' (cap)', perWeak: v => `${v}`, rOk: w => `${w} OK`, reason: { '落地': 'falls', '飞过': 'overshoots', '超时': 'timeout' },
+    rdHead: ['Weak round', 'Bonus multiplier', 'Avg damage / run', 'Runs reaching round', 'Avg damage when reached'],
+    rdOut: 'Outside Weak', rdRound: k => `Round ${k}`,
+    timelineAria: 'Boss HP timeline for one run', roundsAria: 'Kill round distribution', throwsAria: 'Throws distribution',
+  },
+};
+let LANG = 'zh';
+try { const s = localStorage.getItem('orbSimLang'); if (s === 'en' || s === 'zh') LANG = s; } catch (e) {}
+const T = k => I18N[LANG][k];
+
+const SRC = {
+  DA: { zh: 'DA', en: 'DA', cls: '' }, BP: { zh: 'BP', en: 'BP', cls: '' }, BT: { zh: 'BT', en: 'BT', cls: '' }, CPP: { zh: 'C++', en: 'C++', cls: '' },
+  NEW: { zh: '新增', en: 'New', cls: 'new' }, GUESS: { zh: '假设', en: 'Assumed', cls: 'guess' }, ENG: { zh: '引擎', en: 'Engine', cls: '' }, SIM: { zh: '模拟', en: 'Sim', cls: '' },
+};
+const GROUPS = [
+  { zh: '伤害', en: 'Damage', open: true, fields: [
+    { k: 'baseDamage', zh: 'Orb 基础伤害', en: 'Orb base damage', u: '', step: 0.5, min: 0, src: 'DA' },
+    { k: 'ratioPerRebound', zh: '每次连击加伤', en: 'Damage per streak', u: '%', pct: true, step: 1, min: 0, src: 'DA' },
+    { k: 'maxRebound', zh: '连击上限', en: 'Streak cap', u: { zh: '次', en: '' }, step: 1, min: 0, int: true, src: 'DA' },
+    { k: 'maxHP', zh: 'Boss 最大血量', en: 'Boss max HP', u: 'HP', step: 10, min: 1, src: 'BP' },
+    { k: 'nonWeakDamage', zh: '非 Weak 时每次伤害', en: 'Damage outside Weak', u: '', step: 0.5, min: 0, src: 'BP' },
+    { k: 'weakBonus', zh: '每轮 Weak 递增加伤', en: 'Bonus per Weak round', u: '%', pct: true, step: 1, min: 0, src: 'NEW' },
+    { k: 'bonusFromFirst', zh: '第 1 轮也加成', en: 'Bonus applies from round 1', bool: true, src: 'NEW' },
+  ]},
+  { zh: 'Weak 节奏', en: 'Weak timing', open: true, fields: [
+    { k: 'weakBase', zh: 'Weak 基础时长', en: 'Weak base duration', u: 's', step: 0.5, min: 0.5, src: 'BT' },
+    { k: 'weakDev', zh: 'Weak 随机偏差 ±', en: 'Weak random deviation ±', u: 's', step: 0.5, min: 0, src: 'BT' },
+    { k: 'chaseMin', zh: '两次 Weak 间隔 最短', en: 'Gap between Weak, min', u: 's', step: 1, min: 0, src: 'GUESS' },
+    { k: 'chaseMax', zh: '两次 Weak 间隔 最长', en: 'Gap between Weak, max', u: 's', step: 1, min: 0, src: 'GUESS' },
+  ]},
+  { zh: '场景与玩家', en: 'Arena & players', open: true, note: { zh: '距离为水平距离，高度相对接球手的手部', en: 'Distances are horizontal; heights are relative to the catcher’s hand' }, fields: [
+    { k: 'distA', zh: '玩家 A 到 Boss', en: 'Player A to Boss', u: 'cm', step: 50, min: 100, src: 'GUESS' },
+    { k: 'distB', zh: '玩家 B 到 Boss', en: 'Player B to Boss', u: 'cm', step: 50, min: 100, src: 'GUESS' },
+    { k: 'hitRate', zh: '命中率', en: 'Hit rate', u: '%', pct: true, step: 1, min: 0, max: 100, src: 'GUESS' },
+    { k: 'catchRate', zh: '接球成功率', en: 'Catch rate', u: '%', pct: true, step: 1, min: 0, max: 100, src: 'GUESS' },
+    { k: 'aimTime', zh: '接住后瞄准耗时', en: 'Aim time after catch', u: 's', step: 0.1, min: 0, src: 'GUESS' },
+    { k: 'weakReact', zh: '进入 Weak 后出手反应', en: 'Reaction after Weak starts', u: 's', step: 0.1, min: 0, src: 'GUESS' },
+    { k: 'pickupTime', zh: '掉球后捡回耗时', en: 'Pickup time after a drop', u: 's', step: 0.5, min: 0, src: 'GUESS' },
+    { k: 'bossHitHeight', zh: 'Boss 受击点高度', en: 'Boss hit-point height', u: 'cm', step: 10, src: 'GUESS' },
+    { k: 'handHeight', zh: '手部离地高度', en: 'Hand height above ground', u: 'cm', step: 10, min: 0, src: 'GUESS' },
+  ]},
+  { zh: '投掷弹道', en: 'Throw ballistics', open: false, fields: [
+    { k: 'throwType', zh: '投掷方式', en: 'Throw type', opts: [[{ zh: '快速投掷', en: 'Quick throw' }, 0], [{ zh: '瞄准投掷', en: 'Aimed throw' }, 1]], src: 'SIM' },
+    { k: 'charge', zh: '蓄力程度', en: 'Charge', u: '%', pct: true, step: 5, min: 0, max: 100, src: 'SIM', when: P => P.throwType === 1 },
+    { k: 'baseThrowSpeed', zh: 'BaseThrowSpeed', en: 'BaseThrowSpeed', u: 'cm/s', step: 50, min: 1, src: 'DA' },
+    { k: 'aimThrowSpeed', zh: 'AimThrowSpeed', en: 'AimThrowSpeed', u: 'cm/s', step: 50, min: 1, src: 'DA' },
+    { k: 'aimThrowSpeedMax', zh: 'AimThrowSpeedMax', en: 'AimThrowSpeedMax', u: 'cm/s', step: 50, min: 1, src: 'DA' },
+    { k: 'speedRatioPerRebound', zh: '每次连击投速提升', en: 'Throw speed per streak', u: '%', pct: true, step: 1, min: 0, src: 'DA' },
+    { k: 'baseGravityScale', zh: 'BaseGravityScale', en: 'BaseGravityScale', u: '×', step: 0.05, min: 0, src: 'DA' },
+    { k: 'aimGravityScale', zh: 'AimThrowGravityScale', en: 'AimThrowGravityScale', u: '×', step: 0.05, min: 0, src: 'DA' },
+    { k: 'aimGravityScaleMax', zh: 'AimGravityScaleMax', en: 'AimGravityScaleMax', u: '×', step: 0.05, min: 0, src: 'DA' },
+    { k: 'maxSpeed', zh: 'BaseMaxSpeed', en: 'BaseMaxSpeed', u: 'cm/s', step: 100, min: 1, src: 'DA' },
+    { k: 'worldGravity', zh: '世界重力', en: 'World gravity', u: 'cm/s²', step: 10, min: 1, src: 'ENG' },
+  ]},
+  { zh: '回弹与接球', en: 'Rebound & catch', open: false, fields: [
+    { k: 'reboundScale', zh: '回弹初速系数', en: 'Rebound speed factor', u: { zh: '× 投速', en: '× throw' }, step: 0.05, min: 0, src: 'CPP' },
+    { k: 'reboundAddPerHit', zh: '每次回弹加速', en: 'Rebound speed per hit', u: 'cm/s', step: 10, min: 0, src: 'CPP' },
+    { k: 'minLaunchPitch', zh: '回弹最小仰角', en: 'Rebound min pitch', u: '°', step: 1, min: 0, max: 89, src: 'DA' },
+    { k: 'hitStop', zh: '命中顿帧', en: 'Hit stop', u: 's', step: 0.01, min: 0, src: 'CPP' },
+    { k: 'catchRadius', zh: '接球圈半径', en: 'Catch radius', u: 'cm', step: 25, min: 50, src: 'DA' },
+    { k: 'catchSpeedMult', zh: '接球拉回倍率', en: 'Catch pull multiplier', u: '×', step: 0.1, min: 0.1, src: 'DA' },
+    { k: 'attachDist', zh: '吸附距离', en: 'Attach distance', u: 'cm', step: 5, min: 1, src: 'DA' },
+    { k: 'cooldown', zh: '接球后投掷冷却', en: 'Throw cooldown after catch', u: 's', step: 0.05, min: 0, src: 'DA' },
+  ]},
+  { zh: '模拟设置', en: 'Simulation', open: false, fields: [
+    { k: 'runs', zh: '模拟局数', en: 'Runs', u: { zh: '局', en: '' }, step: 500, min: 100, max: 20000, int: true, src: 'SIM' },
+    { k: 'seed', zh: '随机种子', en: 'Random seed', u: '', step: 1, min: 0, int: true, src: 'SIM' },
+  ]},
+];
+const L = (o) => (o && typeof o === 'object') ? o[LANG] : o;
+
+const P = { ...DEFAULTS };
+let sampleIdx = 0;
+const fieldEls = {};
+const fmt = (x, d = 1) => (x == null || isNaN(x)) ? '–' : (Math.abs(x - Math.round(x)) < 1e-9 ? String(Math.round(x)) : x.toFixed(d));
+const toUI = (f, v) => f.pct ? +(v * 100).toFixed(4) : v;
+const fromUI = (f, v) => f.pct ? v / 100 : v;
+
+function buildParams() {
+  const root = document.getElementById('params');
+  root.innerHTML = '';
+  root.setAttribute('aria-label', T('params'));
+  const leg = document.createElement('div');
+  leg.className = 'legend-src';
+  leg.innerHTML = T('srcLegend').map(([a, b, c]) => `<span><span class="src${c ? ' ' + c : ''}">${a}</span>${b}</span>`).join('');
+  root.appendChild(leg);
+  for (const g of GROUPS) {
+    const d = document.createElement('details');
+    d.className = 'group'; d.open = g.openState != null ? g.openState : g.open;
+    d.addEventListener('toggle', () => { g.openState = d.open; });
+    d.innerHTML = `<summary><span class="chev">▶</span>${L(g)}<span class="count"></span></summary>`;
+    const body = document.createElement('div'); body.className = 'group-body';
+    if (g.note) body.innerHTML = `<div class="group-note">${L(g.note)}</div>`;
+    for (const f of g.fields) {
+      const row = document.createElement('div'); row.className = 'field';
+      const id = 'p_' + f.k;
+      const s = SRC[f.src];
+      let ctl;
+      if (f.opts) ctl = `<div class="inp"><select id="${id}">${f.opts.map(o => `<option value="${o[1]}">${L(o[0])}</option>`).join('')}</select></div>`;
+      else if (f.bool) ctl = `<div class="inp" style="border:0;justify-content:flex-end"><input id="${id}" type="checkbox" style="width:auto;accent-color:var(--accent)"></div>`;
+      else ctl = `<div class="inp"><input id="${id}" type="number" inputmode="decimal" step="${f.step}"${f.min != null ? ` min="${f.min}"` : ''}${f.max != null ? ` max="${f.max}"` : ''}><span class="unit">${L(f.u)}</span></div>`;
+      row.innerHTML = `<label for="${id}"><span class="src${s.cls ? ' ' + s.cls : ''}">${s[LANG]}</span><span class="lbl">${L(f)}</span><button class="reset-one" type="button" title="${T('resetOne')}" aria-label="${T('resetOne')}" hidden>↺</button></label>${ctl}`;
+      body.appendChild(row);
+      const input = row.querySelector('#' + id);
+      fieldEls[f.k] = { f, row, input, group: d };
+      const read = () => {
+        let v;
+        if (f.bool) v = input.checked ? 1 : 0;
+        else if (f.opts) v = +input.value;
+        else { v = parseFloat(input.value); if (isNaN(v)) return; if (f.min != null) v = Math.max(f.min, v); if (f.max != null) v = Math.min(f.max, v); if (f.int) v = Math.round(v); v = fromUI(f, v); }
+        P[f.k] = v; sampleIdx = 0; schedule();
+      };
+      input.addEventListener(f.bool || f.opts ? 'change' : 'input', read);
+      if (!f.bool && !f.opts) input.addEventListener('blur', () => syncField(f.k));
+      row.querySelector('.reset-one').addEventListener('click', (e) => { e.preventDefault(); P[f.k] = DEFAULTS[f.k]; syncField(f.k); sampleIdx = 0; schedule(); });
+    }
+    d.appendChild(body); root.appendChild(d);
+  }
+  for (const k in fieldEls) syncField(k);
+}
+function syncField(k) {
+  const { f, input } = fieldEls[k];
+  if (f.bool) input.checked = !!P[k];
+  else if (f.opts) input.value = P[k];
+  else if (document.activeElement !== input || +input.value !== toUI(f, P[k])) input.value = toUI(f, P[k]);
+}
+function refreshMarks() {
+  const counts = new Map();
+  for (const k in fieldEls) {
+    const { f, row, group } = fieldEls[k];
+    const changed = Math.abs(P[k] - DEFAULTS[k]) > 1e-9;
+    row.classList.toggle('changed', changed);
+    row.querySelector('.reset-one').hidden = !changed;
+    row.classList.toggle('disabled', !!(f.when && !f.when(P)));
+    if (changed) counts.set(group, (counts.get(group) || 0) + 1);
+  }
+  document.querySelectorAll('details.group').forEach(g => { const c = counts.get(g) || 0; g.querySelector('.count').textContent = c ? T('changedN')(c) : ''; });
+}
+
+let timer = null;
+function schedule() { refreshMarks(); clearTimeout(timer); timer = setTimeout(render, 90); }
+
+// ---------- 图表工具 ----------
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); if (parent) parent.appendChild(e); return e; }
+function niceStep(max, ticks) { const raw = max / ticks; const p = Math.pow(10, Math.floor(Math.log10(raw))); const m = raw / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
+function tipFor(container) {
+  let t = container.querySelector('.tip'); if (!t) { t = document.createElement('div'); t.className = 'tip'; container.appendChild(t); }
+  return { show(html, x, y) { t.innerHTML = html; t.style.left = x + 'px'; t.style.top = y + 'px'; t.classList.add('show'); }, hide() { t.classList.remove('show'); } };
+}
+function barChart(container, cats, values, opts) {
+  container.innerHTML = '';
+  const W = 520, H = 220, m = { l: 40, r: 10, t: 22, b: 30 };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria }, container);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const maxV = Math.max(...values, 1e-9);
+  const step = niceStep(maxV, 4); const top = Math.ceil(maxV / step) * step || 1;
+  const g = el('g', { class: 'grid' }, svg);
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    const y = m.t + ih - (v / top) * ih;
+    el('line', { x1: m.l, x2: W - m.r, y1: y, y2: y }, g);
+    const tx = el('text', { x: m.l - 6, y: y + 4, 'text-anchor': 'end' }, svg); tx.textContent = opts.yfmt(v);
+  }
+  const bw = iw / cats.length; const gap = Math.min(10, bw * 0.25);
+  const tip = tipFor(container);
+  const maxIdx = values.indexOf(maxV);
+  cats.forEach((c, i) => {
+    const v = values[i]; const h = (v / top) * ih; const x = m.l + i * bw + gap / 2; const y = m.t + ih - h; const w = bw - gap;
+    const r = Math.min(4, w / 2, h);
+    const path = h > 0 ? `M${x},${m.t + ih} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${m.t + ih} Z` : '';
+    if (path) el('path', { d: path, fill: opts.color(c, i) }, svg);
+    if (cats.length <= 14 || i % Math.ceil(cats.length / 14) === 0) { const lx = el('text', { x: x + w / 2, y: H - m.b + 16, 'text-anchor': 'middle' }, svg); lx.textContent = opts.xfmt(c); }
+    if (v > 0 && (i === maxIdx || (opts.labelAll && cats.length <= 8))) { const lt = el('text', { x: x + w / 2, y: y - 6, 'text-anchor': 'middle', class: 'lab' }, svg); lt.textContent = opts.yfmt(v); }
+    const hit = el('rect', { x: m.l + i * bw, y: m.t, width: bw, height: ih, fill: 'transparent' }, svg);
+    hit.addEventListener('mousemove', () => { const rect = svg.getBoundingClientRect(); const sx = rect.width / W; tip.show(opts.tip(c, v), (x + w / 2) * sx, (Math.min(y, m.t + ih - 4)) * sx); });
+    hit.addEventListener('mouseleave', () => tip.hide());
+  });
+  el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, class: 'axis' }, svg);
+  if (opts.xlabel) { const t = el('text', { x: W - m.r, y: H - 2, 'text-anchor': 'end' }, svg); t.textContent = opts.xlabel; }
+}
+
+function timelineChart(container, run, P) {
+  container.innerHTML = '';
+  const W = 1000, H = 260, m = { l: 44, r: 16, t: 16, b: 32 };
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': T('timelineAria') }, container);
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const tEnd = Math.max(run.time, 1) * 1.04;
+  const X = t => m.l + (t / tEnd) * iw, Y = hp => m.t + ih - (hp / P.maxHP) * ih;
+  for (const ph of run.phases) {
+    if (ph.start > tEnd) break;
+    const x0 = X(ph.start), x1 = X(Math.min(ph.end, tEnd));
+    el('rect', { x: x0, y: m.t, width: Math.max(0, x1 - x0), height: ih, fill: 'var(--weak-band)' }, svg);
+    el('line', { x1: x0, x2: x0, y1: m.t, y2: m.t + ih, stroke: 'var(--weak)', 'stroke-width': 1, opacity: .6 }, svg);
+    const lt = el('text', { x: x0 + 5, y: m.t + 13, class: 'lab' }, svg); lt.textContent = `W${ph.k}`; lt.setAttribute('fill', 'var(--weak)');
+  }
+  const g = el('g', { class: 'grid' }, svg);
+  const hs = niceStep(P.maxHP, 4);
+  for (let v = 0; v <= P.maxHP + 1e-9; v += hs) { const y = Y(v); el('line', { x1: m.l, x2: W - m.r, y1: y, y2: y }, g); const t = el('text', { x: m.l - 6, y: y + 4, 'text-anchor': 'end' }, svg); t.textContent = fmt(v, 0); }
+  const ts = niceStep(tEnd, 8);
+  for (let t = 0; t <= tEnd; t += ts) { const tx = el('text', { x: X(t), y: H - m.b + 16, 'text-anchor': 'middle' }, svg); tx.textContent = fmt(t, 0) + 's'; }
+  el('line', { x1: m.l, x2: W - m.r, y1: m.t + ih, y2: m.t + ih, class: 'axis' }, svg);
+  let d = `M${X(0)},${Y(P.maxHP)}`;
+  for (const e of run.events.filter(e => e.type === 'hit')) d += ` H${X(e.t)} V${Y(e.hp)}`;
+  d += ` H${X(run.time)}`;
+  el('path', { d, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+  const tip = tipFor(container);
+  const marks = [];
+  for (const e of run.events) {
+    if (e.type === 'catch') continue;
+    const isHit = e.type === 'hit';
+    const cx = X(e.t), cy = Y(e.hp);
+    el('circle', { cx, cy, r: isHit ? 4 : 4.5, fill: isHit ? 'var(--accent)' : 'var(--bad)', stroke: 'var(--surface)', 'stroke-width': 2 }, svg);
+    marks.push({ e, cx, cy });
+  }
+  const desc = e => {
+    const t = fmt(e.t, 1), w = T('who')(e.who);
+    if (e.type === 'hit') return T('evHit')(t, w, fmt(e.dmg, 2), e.weak ? T('ctxWeak')(e.k, e.n) : T('ctxNon'), fmt(e.hp, 2));
+    return e.type === 'miss' ? T('evMiss')(t, w) : e.type === 'fall' ? T('evFall')(t, w) : T('evDrop')(t, w);
+  };
+  const overlay = el('rect', { x: m.l, y: m.t, width: iw, height: ih, fill: 'transparent' }, svg);
+  const guide = el('line', { x1: 0, x2: 0, y1: m.t, y2: m.t + ih, stroke: 'var(--ink-3)', 'stroke-dasharray': '3 3', opacity: 0 }, svg);
+  overlay.addEventListener('mousemove', (ev) => {
+    const rect = svg.getBoundingClientRect(); const sx = rect.width / W; const px = (ev.clientX - rect.left) / sx;
+    let best = null, bd = 1e9; for (const mk of marks) { const dd = Math.abs(mk.cx - px); if (dd < bd) { bd = dd; best = mk; } }
+    if (best && bd < 30) { guide.setAttribute('x1', best.cx); guide.setAttribute('x2', best.cx); guide.setAttribute('opacity', .7); tip.show(desc(best.e), best.cx * sx, best.cy * sx); }
+    else { guide.setAttribute('opacity', 0); tip.hide(); }
+  });
+  overlay.addEventListener('mouseleave', () => { guide.setAttribute('opacity', 0); tip.hide(); });
+}
+
+// ---------- 渲染 ----------
+function render() {
+  const r = runAll(P);
+  const tables = r.tables;
+  const rng = mulberry32((P.seed * 7919 + sampleIdx * 104729 + 1) >>> 0);
+  const sample = simulateRun(P, rng, tables, true);
+  const id = r.ideal;
+
+  const tile = (k, s, unit, idealV, hero, d = 1) => `<div class="tile${hero ? ' hero' : ''}"><div class="k">${k}</div>
+    <div class="v">${fmt(s.mean, d)}<small>${unit}</small></div><div class="q">${T('q')(fmt(s.p50, d), fmt(s.p90, d))}</div>
+    <div class="ideal">${T('ideal')} <b>${idealV}</b></div></div>`;
+  document.getElementById('tiles').innerHTML =
+    tile(T('tRounds'), r.rounds, T('uRound'), id.done ? T('idealRound')(id.rounds) : T('idealNo'), true) +
+    tile(T('tThrows'), r.throws, T('uTimes'), id.done ? T('idealTimes')(id.throws) : '–') +
+    tile(T('tHits'), r.hits, T('uTimes'), id.done ? T('idealTimes')(id.hits) : '–') +
+    tile(T('tTime'), r.time, T('uSec'), id.done ? `${fmt(id.time, 1)} s` : '–');
+
+  const alerts = [];
+  const unreachThrow = r.levels.filter(l => !l.reach);
+  if (unreachThrow.length) alerts.push(T('aThrow')(unreachThrow.map(l => l.n).join(T('sep'))));
+  for (const who of ['A', 'B']) {
+    const bad = r.levels.filter(l => !tables.reb(who, l.n + 1).ok);
+    if (bad.length) alerts.push(T('aReb')(who, fmt(who === 'A' ? P.distA : P.distB, 0), bad.map(l => l.n).join(T('sep')), tables.reb(who, bad[0].n + 1).reason === '落地', fmt(r.physDrops / r.n, 1)));
+  }
+  if (r.unfinished) alerts.push(T('aUnf')(r.unfinished));
+  if (P.chaseMax < P.chaseMin) alerts.push(T('aGap'));
+  document.getElementById('alerts').innerHTML = alerts.map(a => `<div class="alert"><span class="ic">!</span><span>${a}</span></div>`).join('');
+
+  const rArr = r.rounds.arr; const maxR = Math.max(1, ...rArr);
+  const rc = Array.from({ length: maxR }, (_, i) => i + 1);
+  const rv = rc.map(k => rArr.filter(x => x === k).length / (rArr.length || 1));
+  barChart(document.getElementById('roundsChart'), rc, rv, {
+    aria: T('roundsAria'), yfmt: v => fmt(v * 100, 0) + '%', xfmt: c => T('roundX')(c), labelAll: true,
+    color: (c) => c === id.rounds ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 55%, var(--surface))',
+    tip: (c, v) => T('roundTip')(c, fmt(v * 100, 1), Math.round(v * rArr.length)),
+  });
+  document.getElementById('roundsDesc').textContent = T('roundsDesc')(r.done);
+
+  const tArr = r.throws.arr; const tMin = Math.min(...tArr), tMax = Math.max(...tArr);
+  let bin = 1; while ((tMax - tMin) / bin > 24) bin++;
+  const bins = []; for (let b = Math.floor(tMin / bin) * bin; b <= tMax; b += bin) bins.push(b);
+  const bv = bins.map(b => tArr.filter(x => x >= b && x < b + bin).length / tArr.length);
+  barChart(document.getElementById('throwsChart'), bins, bv, {
+    aria: T('throwsAria'), yfmt: v => fmt(v * 100, 0) + '%', xfmt: c => String(c), xlabel: T('throwsX'),
+    color: () => 'var(--accent)',
+    tip: (c, v) => T('throwsTip')(bin === 1 ? String(c) : `${c}–${c + bin - 1}`, fmt(v * 100, 1)),
+  });
+
+  if (sample.done) {
+    timelineChart(document.getElementById('timeline'), sample, P);
+    document.getElementById('sampleDesc').textContent = T('sampleDesc')(sampleIdx + 1, fmt(sample.time, 1), sample.throws, sample.hits, sample.drops, sample.rounds);
+  } else { document.getElementById('timeline').innerHTML = ''; document.getElementById('sampleDesc').textContent = T('sampleNone'); }
+
+  const Lv = r.levels, H1 = T('lvHead');
+  document.getElementById('levelTbl').innerHTML =
+    `<thead><tr>${H1.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>` +
+    Lv.map(l => `<tr><td>${l.n}${l.n === P.maxRebound ? T('cap') : ''}</td><td>${fmt(l.speed, 0)}</td><td>${fmt(l.tThrow, 2)}${l.reach ? '' : ' *'}</td><td>${fmt(l.dmg, 2)}</td><td>${fmt(l.rSpeed, 0)}</td><td>${l.rOk ? fmt(l.tReb, 2) : '–'}</td><td>${fmt(l.cycle, 2)}</td><td>${T('perWeak')(fmt(P.weakBase / l.cycle, 1))}</td><td>${['A', 'B'].map(w => { const rb = tables.reb(w, l.n + 1); return rb.ok ? `<span class="pill ok">${T('rOk')(w)}</span>` : `<span class="pill bad">${w} ${T('reason')[rb.reason] || rb.reason}</span>`; }).join(' ')}</td></tr>`).join('') + '</tbody>';
+
+  const keys = Object.keys(r.roundDmg).map(Number).sort((a, b) => a - b);
+  const reach = k => rArr.filter(x => x >= k).length;
+  document.getElementById('roundTbl').innerHTML = `<thead><tr>${T('rdHead').map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>` +
+    keys.map(k => {
+      const mult = k === 0 ? '–' : '×' + fmt(1 + P.weakBonus * Math.max(0, P.bonusFromFirst ? k : k - 1), 2);
+      const n = k === 0 ? r.done : reach(k);
+      return `<tr><td>${k === 0 ? T('rdOut') : T('rdRound')(k)}</td><td>${mult}</td><td>${fmt(r.roundDmg[k] / r.done, 1)}</td><td>${k === 0 ? '–' : fmt(n / r.done * 100, 0) + '%'}</td><td>${n ? fmt(r.roundDmg[k] / n, 1) : '–'}</td></tr>`;
+    }).join('') + '</tbody>';
+}
+
+// ---------- 语言 ----------
+function applyLang() {
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : 'en';
+  document.title = T('docTitle');
+  document.querySelectorAll('[data-i18n]').forEach(n => { n.textContent = T(n.dataset.i18n); });
+  document.getElementById('langBtn').textContent = T('langBtn');
+  document.getElementById('drawer').setAttribute('aria-label', T('algo'));
+  document.querySelectorAll('.drawer-body').forEach(b => { b.hidden = b.dataset.lang !== LANG; });
+  buildParams(); refreshMarks(); render();
+}
+document.getElementById('langBtn').addEventListener('click', () => {
+  LANG = LANG === 'zh' ? 'en' : 'zh';
+  try { localStorage.setItem('orbSimLang', LANG); } catch (e) {}
+  applyLang();
+});
+
+// ---------- 交互 ----------
+const drawer = document.getElementById('drawer'), backdrop = document.getElementById('backdrop'), algoBtn = document.getElementById('algoBtn');
+function setDrawer(open) { drawer.classList.toggle('open', open); backdrop.classList.toggle('open', open); algoBtn.setAttribute('aria-expanded', open); drawer.setAttribute('aria-hidden', !open); if (open) document.getElementById('closeDrawer').focus(); }
+algoBtn.addEventListener('click', () => setDrawer(!drawer.classList.contains('open')));
+document.getElementById('closeDrawer').addEventListener('click', () => { setDrawer(false); algoBtn.focus(); });
+backdrop.addEventListener('click', () => setDrawer(false));
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawer.classList.contains('open')) { setDrawer(false); algoBtn.focus(); } });
+document.getElementById('resetAll').addEventListener('click', () => { Object.assign(P, DEFAULTS); for (const k in fieldEls) syncField(k); sampleIdx = 0; schedule(); });
+document.getElementById('nextSample').addEventListener('click', () => { sampleIdx++; render(); });
+
+applyLang();
+</script>
+</body>
+</html>
